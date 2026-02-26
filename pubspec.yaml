@@ -1,0 +1,55 @@
+name: community
+description: "Application communautaire pour connecter les gens"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_fonts: ^7.0.0
+  font_awesome_flutter: ^10.12.0
+  url_launcher: ^6.3.2
+  http: ^1.2.0
+  get: ^4.6.6
+  lottie: ^2.7.0
+  shared_preferences: ^2.5.4
+  flutter_localization: ^0.3.3
+  permission_handler: ^12.0.1
+  intl: ^0.20.2
+  flutter_svg: ^2.2.3
+  cached_network_image: ^3.4.1
+  uuid: ^4.5.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.0
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+
+flutter_icons:
+  android: true
+  image_path: "assets/images/app_icon.png"
+  ios: false
+  # background_color: "#000000"
+  # min_sdk_android: 21
+
+flutter_native_splash:
+  color: "#FFFFFF" # couleur de fond du splash
+  image: assets/images/app_icon.png # logo centré
+  android: true
+  ios: true
+
+  android_12:
+    color: "#FFFFFF"
+    image: assets/images/app_icon.png
