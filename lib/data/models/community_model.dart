@@ -125,6 +125,8 @@ class CommunityModel {
       if (creator_prenom != null) 'creator_prenom': creator_prenom,
       'members_count': members_count,
       'projects_count': projects_count,
+      'tasks_count': tasks_count,
+      'completed_tasks': completed_tasks,
     };
   }
 
@@ -140,6 +142,8 @@ class CommunityModel {
     String? creator_prenom,
     int? members_count,
     int? projects_count,
+    int? tasks_count,
+    int? completed_tasks,
   }) {
     return CommunityModel(
       community_id: community_id ?? this.community_id,
@@ -153,6 +157,8 @@ class CommunityModel {
       creator_prenom: creator_prenom ?? this.creator_prenom,
       members_count: members_count ?? this.members_count,
       projects_count: projects_count ?? this.projects_count,
+      tasks_count: tasks_count ?? this.tasks_count,
+      completed_tasks: completed_tasks ?? this.completed_tasks,
     );
   }
 

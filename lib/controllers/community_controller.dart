@@ -15,11 +15,16 @@ class CommunityController extends GetxController {
   final RxString error = ''.obs;
   final RxList<MemberModel> currentMembers = <MemberModel>[].obs;
 
-  @override
-  void onInit() {
-    super.onInit();
-    // On pourrait tenter de restaurer ici, mais le flux de l’app
-    // semble préférer laisser Splash/Main gérer le boot.
+  bool _isAdminForCommunity(int communityId) {
+    final current = currentCommunity.value;
+    if (current != null && current.community_id == communityId) {
+      return current.role == 'ADMIN';
+    }
+    final index = communities.indexWhere((c) => c.community_id == communityId);
+    if (index != -1) {
+      return communities[index].role == 'ADMIN';
+    }
+    return false;
   }
 
   Future<void> loadCommunities() async {
@@ -325,13 +330,20 @@ class CommunityController extends GetxController {
       isLoading.value = true;
       error.value = '';
 
+      if (!_isAdminForCommunity(communityId)) {
+        error.value = 'Seul un administrateur peut supprimer la communauté.';
+        return false;
+      }
+
       final success = await _communityService.deleteCommunity(communityId);
 
       if (success) {
         communities.removeWhere((c) => c.community_id == communityId);
         if (currentCommunity.value?.community_id == communityId) {
           currentCommunity.value = null;
+          await _storageService.clearCurrentCommunityId();
         }
+        await loadCommunitiesSilently();
       }
 
       return success;
@@ -350,6 +362,11 @@ class CommunityController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
+
+      if (_isAdminForCommunity(communityId)) {
+        error.value = 'Un administrateur ne peut pas quitter sa communauté.';
+        return false;
+      }
 
       final success = await _communityService.leaveCommunity(
         communityId: communityId,

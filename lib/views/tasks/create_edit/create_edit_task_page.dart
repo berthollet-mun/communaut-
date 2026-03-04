@@ -1,6 +1,7 @@
 import 'package:community/views/shared/widgets/button.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/community_controller.dart';
 import 'package:community/controllers/project_controller.dart';
 import 'package:community/controllers/task_controller.dart';
@@ -21,6 +22,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
   final TaskController _taskController = Get.find();
   final ProjectController _projectController = Get.find();
   final CommunityController _communityController = Get.find();
+  final AuthController _authController = Get.find();
 
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final TextEditingController _titleController = TextEditingController();
@@ -75,11 +77,17 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       final members = await _communityController.getCommunityMembers(
         communityId,
       );
+      final currentUserId = _authController.user.value?.user_id;
+      final assignableMembers = members.where((m) {
+        final isCurrentUser = currentUserId != null && m.id == currentUserId;
+        final isAdmin = m.role.toUpperCase() == 'ADMIN';
+        return !isCurrentUser && !isAdmin;
+      }).toList();
 
       if (!mounted) return;
 
       setState(() {
-        _members = members;
+        _members = assignableMembers;
         _isLoadingMembers = false;
       });
 
@@ -137,12 +145,21 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     },
                   ),
                   const Divider(),
+                  if (_members.isEmpty)
+                    const ListTile(
+                      leading: Icon(Icons.info_outline),
+                      title: Text('Aucun membre assignable'),
+                      subtitle: Text(
+                        'Les administrateurs et votre compte sont exclus.',
+                      ),
+                    )
+                  else
                   ..._members.map(
                     (member) => ListTile(
-                      leading: CircleAvatar(
+                    leading: CircleAvatar(
                         backgroundColor: Colors.blue,
                         child: Text(
-                          '${member.prenom[0]}${member.nom[0]}'.toUpperCase(),
+                          _initials(member),
                           style: const TextStyle(
                             color: Colors.white,
                             fontSize: 12,
@@ -195,6 +212,11 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
     final dueDateStr = _dueDate != null
         ? '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}'
         : null;
+    final currentUserId = _authController.user.value?.user_id;
+    final hasInvalidAssignee = _assignedTo != null &&
+        (_assignedTo!.role.toUpperCase() == 'ADMIN' ||
+            (currentUserId != null && _assignedTo!.id == currentUserId));
+    final assignedToId = hasInvalidAssignee ? null : _assignedTo?.id;
 
     if (_isEditMode && _currentTask != null) {
       // MODE ÉDITION
@@ -204,7 +226,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         taskId: _currentTask!.id,
         titre: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        assignedTo: _assignedTo?.id,
+        assignedTo: assignedToId,
         dueDate: dueDateStr,
       );
 
@@ -232,7 +254,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         projectId: project.id,
         titre: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        assignedTo: _assignedTo?.id,
+        assignedTo: assignedToId,
         dueDate: dueDateStr,
       );
 
@@ -371,7 +393,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                       if (_taskController.isLoading.value) {
                         return const Center(child: CircularProgressIndicator());
                       }
-                      return PrimaryButton(
+      return PrimaryButton(
                         text: _isEditMode ? 'Mettre à jour' : 'Créer',
                         onPressed: _saveTask,
                         fullWidth: true,
@@ -392,9 +414,28 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
     );
   }
 
+  String _initials(MemberModel member) {
+    final p = member.prenom.trim();
+    final n = member.nom.trim();
+    final first = p.isNotEmpty ? p[0] : 'U';
+    final second = n.isNotEmpty ? n[0] : 'U';
+    return '$first$second'.toUpperCase();
+  }
+
   void _confirmDelete() {
     final community = _communityController.currentCommunity.value!;
     final project = _projectController.currentProject.value!;
+    final role = community.role;
+
+    if (role == 'MEMBRE') {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas supprimer cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
 
     Get.dialog(
       AlertDialog(

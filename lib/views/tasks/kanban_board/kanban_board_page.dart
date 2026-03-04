@@ -4,8 +4,6 @@ import 'package:community/app/routes/app_routes.dart';
 import 'package:community/controllers/task_controller.dart';
 import 'package:community/controllers/project_controller.dart';
 import 'package:community/controllers/community_controller.dart';
-import 'package:community/core/utils/responsive_helper.dart';
-import 'package:community/core/utils/widgets/responsive_builder.dart';
 import 'package:community/data/models/task_model.dart';
 import 'package:community/views/shared/widgets/loading_widget.dart';
 
@@ -23,6 +21,11 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
 
   late int _communityId;
   late int _projectId;
+
+  bool get _canManageTasks {
+    final role = _communityController.currentCommunity.value?.role ?? 'MEMBRE';
+    return role == 'ADMIN' || role == 'RESPONSABLE';
+  }
 
   @override
   void initState() {
@@ -103,6 +106,16 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   void _showTaskActions(TaskModel task) {
+    if (!_canManageTasks) {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas modifier ou supprimer cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     Get.bottomSheet(
       SafeArea(
         child: Container(
@@ -189,6 +202,16 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   void _confirmDelete(TaskModel task) {
+    if (!_canManageTasks) {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas supprimer cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     Get.dialog(
       AlertDialog(
         title: const Text('Supprimer la tâche'),

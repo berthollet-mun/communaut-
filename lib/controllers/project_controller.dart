@@ -54,10 +54,16 @@ class ProjectController extends GetxController {
       );
 
       if (project != null) {
-        projects.add(project);
+        final index = projects.indexWhere((p) => p.id == project.id);
+        if (index == -1) {
+          projects.add(project);
+        } else {
+          projects[index] = project;
+        }
         currentProject.value = project;
         return project;
       }
+      error.value = 'Le projet a été créé mais sa réponse est invalide.';
       return null;
     } catch (e) {
       error.value = 'Erreur de création du projet: $e';

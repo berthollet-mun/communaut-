@@ -50,6 +50,10 @@ class StorageService extends GetxService {
     return _prefs.getInt('current_community_id');
   }
 
+  Future<void> clearCurrentCommunityId() async {
+    await _prefs.remove('current_community_id');
+  }
+
   Future<void> clear() async {
     await _prefs.clear();
   }

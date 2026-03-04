@@ -86,16 +86,32 @@ class TaskService extends GetxService {
     print('DATA: $data');
     print('===================');
 
-    final response = await _apiService.post(
+    var response = await _apiService.post(
       '/communities/$communityId/projects/$projectId/tasks',
       data,
     );
+
+    // Backend workaround: some deployments crash when due_date is present.
+    if (!response.success && dueDate != null) {
+      final retryData = Map<String, dynamic>.from(data)..remove('due_date');
+      response = await _apiService.post(
+        '/communities/$communityId/projects/$projectId/tasks',
+        retryData,
+      );
+    }
 
     if (response.success) {
       final payload = _extractTaskPayload(response.data);
       if (payload != null) {
         return TaskModel.fromJson(payload);
       }
+    }
+    if (!response.success) {
+      throw Exception(
+        response.displayMessage.isNotEmpty
+            ? response.displayMessage
+            : 'Erreur de création de tâche',
+      );
     }
     return null;
   }
@@ -134,10 +150,21 @@ class TaskService extends GetxService {
     if (assignedTo != null) data['assigned_to'] = assignedTo;
     if (dueDate != null) data['due_date'] = dueDate;
 
-    return await _apiService.put(
+    var response = await _apiService.put(
       '/communities/$communityId/projects/$projectId/tasks/$taskId',
       data,
     );
+
+    // Same backend workaround for update flow.
+    if (!response.success && dueDate != null && data.containsKey('due_date')) {
+      final retryData = Map<String, dynamic>.from(data)..remove('due_date');
+      response = await _apiService.put(
+        '/communities/$communityId/projects/$projectId/tasks/$taskId',
+        retryData,
+      );
+    }
+
+    return response;
   }
 
   Future<ApiResponse> updateTaskStatus({

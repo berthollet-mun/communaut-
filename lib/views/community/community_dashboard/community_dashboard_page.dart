@@ -5,7 +5,6 @@ import 'package:community/controllers/project_controller.dart';
 import 'package:community/core/utils/responsive_helper.dart';
 import 'package:community/data/models/community_model.dart';
 import 'package:community/views/shared/widgets/button.dart';
-import 'package:community/views/shared/widgets/loading_widget.dart';
 import 'package:community/views/shared/widgets/role_badge.dart';
 import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/task_controller.dart';
@@ -28,12 +27,9 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   final AuthController _authController = Get.find();
   final TaskController _taskController = Get.find();
 
-  late CommunityModel _community;
-
   @override
   void initState() {
     super.initState();
-    _community = _communityController.currentCommunity.value!;
     _loadData();
   }
 
@@ -79,6 +75,10 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
 
   Future<void> _refreshData() async {
     await _loadData();
+  }
+
+  bool _canCreateProject(CommunityModel community) {
+    return community.role == 'ADMIN' || community.role == 'RESPONSABLE';
   }
 
   @override
@@ -208,6 +208,11 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
 
   /// FAB responsive
   Widget _buildFAB(ResponsiveHelper responsive) {
+    final community = _communityController.currentCommunity.value;
+    if (community == null || !_canCreateProject(community)) {
+      return const SizedBox.shrink();
+    }
+
     // Sur mobile, afficher seulement l'icône si l'écran est petit
     if (responsive.isMobile && responsive.screenWidth < 360) {
       return FloatingActionButton(
@@ -443,19 +448,14 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
               Obx(() {
                 final comm = _communityController.currentCommunity.value;
                 int completed = comm?.completed_tasks ?? 0;
-                int total = comm?.tasks_count ?? 0;
-                double percent = 0;
-
-                if (total > 0) {
-                  percent = (completed / total) * 100;
-                } else {
-                  percent = _projectController.communityCompletionPercentage;
+                if (completed == 0) {
+                  completed = _projectController.communityCompletedTasksCount;
                 }
 
                 return _buildStatCard(
                   responsive,
                   icon: Icons.check_circle_outline,
-                  value: '${percent.toStringAsFixed(0)}%',
+                  value: '$completed',
                   label: 'Achevées',
                   color: Colors.purple,
                 );
@@ -701,6 +701,9 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   }
 
   Widget _buildEmptyProjects(ResponsiveHelper responsive) {
+    final community = _communityController.currentCommunity.value;
+    final canCreate = community != null && _canCreateProject(community);
+
     return Container(
       padding: EdgeInsets.symmetric(vertical: responsive.spacing(40)),
       child: Column(
@@ -719,14 +722,21 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
             ),
           ),
           SizedBox(height: responsive.spacing(16)),
-          SecondaryButton(
-            text: 'Créer un premier projet',
-            onPressed: () {
-              _projectController.clearCurrentProject();
-              Get.toNamed(AppRoutes.createEditProject);
-            },
-            fullWidth: false,
-          ),
+          if (canCreate)
+            SecondaryButton(
+              text: 'Créer un premier projet',
+              onPressed: () {
+                _projectController.clearCurrentProject();
+                Get.toNamed(AppRoutes.createEditProject);
+              },
+              fullWidth: false,
+            )
+          else
+            Text(
+              'Seuls les administrateurs et responsables peuvent créer un projet.',
+              textAlign: TextAlign.center,
+              style: AppTheme.bodyText2,
+            ),
         ],
       ),
     );
@@ -897,15 +907,24 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
                 ),
               ],
               Divider(height: responsive.spacing(1)),
-              _buildOptionTile(
-                responsive,
-                icon: Icons.exit_to_app,
-                title: 'Quitter cette communauté',
-                onTap: () {
-                  Get.back();
-                  _confirmLeaveCommunity(community);
-                },
-              ),
+              if (community.role != 'ADMIN')
+                _buildOptionTile(
+                  responsive,
+                  icon: Icons.exit_to_app,
+                  title: 'Quitter cette communauté',
+                  onTap: () {
+                    Get.back();
+                    _confirmLeaveCommunity(community);
+                  },
+                )
+              else
+                _buildOptionTile(
+                  responsive,
+                  icon: Icons.block,
+                  title: 'Admin: quitter indisponible',
+                  color: Colors.grey,
+                  onTap: () {},
+                ),
               SizedBox(height: responsive.spacing(16)),
             ],
           ),
@@ -1120,21 +1139,45 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   void _confirmDeleteCommunity(CommunityModel community) {
     final responsive = ResponsiveHelper(context);
 
+    if (community.role != 'ADMIN') {
+      Get.snackbar(
+        'Accès refusé',
+        'Seul un administrateur peut supprimer la communauté.',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     Get.dialog(
       AlertDialog(
         title: Text(
-          'Fonctionnalité en développement',
+          'Supprimer la communauté',
           style: TextStyle(fontSize: responsive.fontSize(18)),
         ),
         content: Text(
-          'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+          'Cette action est irréversible. Voulez-vous vraiment supprimer "${community.nom}" ?',
           style: TextStyle(fontSize: responsive.fontSize(14)),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'OK',
+              'Annuler',
+              style: TextStyle(fontSize: responsive.fontSize(14)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await _deleteCommunity(community);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Supprimer',
               style: TextStyle(fontSize: responsive.fontSize(14)),
             ),
           ),
@@ -1156,13 +1199,15 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
     print('========================');
 
     if (success) {
-      Get.offAllNamed(AppRoutes.communitySelect);
-      Get.snackbar(
-        'Succès',
-        'La communauté "${community.nom}" a été supprimée',
-        backgroundColor: Colors.green,
-        colorText: Colors.white,
-      );
+      await Get.offAllNamed(AppRoutes.communitySelect);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.snackbar(
+          'Succès',
+          'La communauté "${community.nom}" a été supprimée',
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      });
     } else {
       Get.snackbar(
         'Erreur',
@@ -1178,21 +1223,45 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   void _confirmLeaveCommunity(CommunityModel community) {
     final responsive = ResponsiveHelper(context);
 
+    if (community.role == 'ADMIN') {
+      Get.snackbar(
+        'Action impossible',
+        'Un administrateur ne peut pas quitter sa communauté.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     Get.dialog(
       AlertDialog(
         title: Text(
-          'Fonctionnalité en développement',
+          'Quitter la communauté',
           style: TextStyle(fontSize: responsive.fontSize(18)),
         ),
         content: Text(
-          'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+          'Voulez-vous vraiment quitter "${community.nom}" ?',
           style: TextStyle(fontSize: responsive.fontSize(14)),
         ),
         actions: [
           TextButton(
             onPressed: () => Get.back(),
             child: Text(
-              'OK',
+              'Annuler',
+              style: TextStyle(fontSize: responsive.fontSize(14)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Get.back();
+              await _leaveCommunity(community);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: Text(
+              'Quitter',
               style: TextStyle(fontSize: responsive.fontSize(14)),
             ),
           ),
@@ -1202,6 +1271,16 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   }
 
   Future<void> _leaveCommunity(CommunityModel community) async {
+    if (community.role == 'ADMIN') {
+      Get.snackbar(
+        'Action impossible',
+        'Un administrateur ne peut pas quitter sa communauté.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     // Récupérer l'ID de l'utilisateur connecté
     final userId = _authController.user.value?.user_id;
 
@@ -1232,7 +1311,9 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
     } else {
       Get.snackbar(
         'Erreur',
-        'Impossible de quitter la communauté',
+        _communityController.error.value.isNotEmpty
+            ? _communityController.error.value
+            : 'Impossible de quitter la communauté',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

@@ -278,15 +278,16 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
       );
 
       if (community != null) {
-        Get.offNamed(AppRoutes.communityDashboard);
-
-        Get.snackbar(
-          'Succès !',
-          'La communauté "${community.nom}" a été créée avec succès.',
-          backgroundColor: Colors.green,
-          colorText: Colors.white,
-          duration: const Duration(seconds: 3),
-        );
+        await Get.offNamed(AppRoutes.communityDashboard);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          Get.snackbar(
+            'Succès !',
+            'La communauté "${community.nom}" a été créée avec succès.',
+            backgroundColor: Colors.green,
+            colorText: Colors.white,
+            duration: const Duration(seconds: 3),
+          );
+        });
       } else {
         Get.snackbar(
           'Erreur',
@@ -305,3 +306,4 @@ class _CreateCommunityPageState extends State<CreateCommunityPage> {
     super.dispose();
   }
 }
+

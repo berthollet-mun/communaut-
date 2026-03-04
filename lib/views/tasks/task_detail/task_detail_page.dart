@@ -78,8 +78,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     } else {
       Get.snackbar(
         'Erreur',
-        _taskController.error.value.isNotEmpty 
-            ? _taskController.error.value 
+        _taskController.error.value.isNotEmpty
+            ? _taskController.error.value
             : 'Impossible de changer le statut',
         backgroundColor: Colors.red,
         colorText: Colors.white,
@@ -416,7 +416,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           OutlinedButton.icon(
             onPressed: () => _openComments(task),
             icon: const Icon(Icons.open_in_new),
-            label: const Text('Ouvrir la page commentaires'),
+            label: const Text('Commentaires'),
           ),
         ],
       ),
@@ -424,15 +424,23 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   }
 
   void _confirmDelete() {
+    final role = _communityController.currentCommunity.value?.role ?? 'MEMBRE';
+    if (role == 'MEMBRE') {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas supprimer cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     Get.dialog(
       AlertDialog(
         title: const Text('Supprimer la tâche'),
         content: const Text('Voulez-vous vraiment supprimer cette tâche ?'),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () async {
               Get.back();
@@ -453,8 +461,8 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               } else {
                 Get.snackbar(
                   'Erreur',
-                  _taskController.error.value.isNotEmpty 
-                      ? _taskController.error.value 
+                  _taskController.error.value.isNotEmpty
+                      ? _taskController.error.value
                       : 'Impossible de supprimer la tâche',
                   backgroundColor: Colors.red,
                   colorText: Colors.white,

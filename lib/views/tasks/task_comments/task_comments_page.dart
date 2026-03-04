@@ -6,7 +6,6 @@ import 'package:community/controllers/comment_controller.dart';
 import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/task_controller.dart';
 import 'package:community/data/models/comment_model.dart';
-import 'package:community/views/shared/widgets/loading_widget.dart';
 
 /// Commentaire local temporaire (optimistic UI)
 class _LocalComment {

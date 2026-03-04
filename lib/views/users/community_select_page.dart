@@ -511,20 +511,32 @@ class _CommunitySelectPageState extends State<CommunitySelectPage> {
 
     try {
       HapticFeedback.lightImpact();
+      final openStartedAt = DateTime.now();
 
       setState(() {
         _isOpeningCommunity = true;
         _openingCommunityId = community.community_id;
       });
 
-      _communityController.setCurrentCommunity(community);
-      
-      // ✅ PRE-FETCH: Lancer le chargement des projets immédiatement (non-bloquant)
-      Get.find<ProjectController>().loadProjects(community.community_id);
-      
-      // ✅ Refresh détails communauté en arrière-plan
-      _communityController.refreshCurrentCommunity();
+      await _communityController.setCurrentCommunity(community);
+      await Future.wait([
+        Get.find<ProjectController>().loadProjects(community.community_id),
+        _communityController.refreshCurrentCommunity(),
+      ]);
 
+      final elapsed = DateTime.now().difference(openStartedAt);
+      if (elapsed < const Duration(milliseconds: 350)) {
+        await Future.delayed(const Duration(milliseconds: 350) - elapsed);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _isOpeningCommunity = false;
+        _openingCommunityId = null;
+      });
+
+      // Do not await navigation; waiting for pop and then mutating state can
+      // trigger build-time update errors in this page.
       Get.toNamed(AppRoutes.communityDashboard);
 
       Get.snackbar(
@@ -541,11 +553,12 @@ class _CommunitySelectPageState extends State<CommunitySelectPage> {
         colorText: Colors.white,
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isOpeningCommunity = false;
-        _openingCommunityId = null;
-      });
+      if (mounted && (_isOpeningCommunity || _openingCommunityId != null)) {
+        setState(() {
+          _isOpeningCommunity = false;
+          _openingCommunityId = null;
+        });
+      }
     }
   }
 

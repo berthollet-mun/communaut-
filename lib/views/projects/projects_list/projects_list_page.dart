@@ -89,15 +89,20 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
         final projects = _projectController.activeProjects;
 
         if (projects.isEmpty) {
+          final canCreate = _canCreateProject(community);
           return EmptyStateWidget(
             title: 'Aucun projet',
-            message: 'Créez votre premier projet !',
+            message: canCreate
+                ? 'Créez votre premier projet !'
+                : 'Aucun projet disponible pour le moment.',
             icon: Icons.folder_open_outlined,
-            onAction: () {
-              _projectController.clearCurrentProject();
-              Get.toNamed(AppRoutes.createEditProject);
-            },
-            actionLabel: 'Créer un projet',
+            onAction: canCreate
+                ? () {
+                    _projectController.clearCurrentProject();
+                    Get.toNamed(AppRoutes.createEditProject);
+                  }
+                : null,
+            actionLabel: canCreate ? 'Créer un projet' : null,
           );
         }
 

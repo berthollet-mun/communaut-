@@ -27,6 +27,10 @@ class _CreateEditProjectPageState extends State<CreateEditProjectPage> {
   bool _isEditMode = false;
   ProjectModel? _currentProject;
 
+  bool _canManageProjects(String role) {
+    return role == 'ADMIN' || role == 'RESPONSABLE';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,21 @@ class _CreateEditProjectPageState extends State<CreateEditProjectPage> {
     if (community == null) {
       return const Scaffold(
         body: Center(child: Text('Communauté non sélectionnée')),
+      );
+    }
+
+    if (!_canManageProjects(community.role)) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Accès refusé')),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Text(
+              'Seuls les administrateurs et responsables peuvent créer ou modifier un projet.',
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ),
       );
     }
 
@@ -228,7 +247,9 @@ class _CreateEditProjectPageState extends State<CreateEditProjectPage> {
       } else {
         Get.snackbar(
           'Erreur',
-          'Impossible de créer le projet',
+          _projectController.error.value.isNotEmpty
+              ? _projectController.error.value
+              : 'Impossible de créer le projet',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
