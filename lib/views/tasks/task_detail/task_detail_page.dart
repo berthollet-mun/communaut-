@@ -451,6 +451,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
               );
 
               if (success) {
+                await _taskController.loadKanbanTasks(
+                  communityId: _communityId,
+                  projectId: _projectId,
+                );
                 Get.back(); // Retour au Kanban
                 Get.snackbar(
                   'Succès',
@@ -500,3 +504,4 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     return '${_formatDate(date)} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
+

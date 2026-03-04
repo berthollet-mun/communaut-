@@ -12,16 +12,19 @@ class KanbanModel {
   });
 
   factory KanbanModel.fromJson(Map<String, dynamic> json) {
+    List<TaskModel> parseTasks(dynamic raw) {
+      if (raw is! List) return <TaskModel>[];
+      return raw
+          .whereType<Map<String, dynamic>>()
+          .map(TaskModel.fromJson)
+          .where((task) => !task.isDeleted)
+          .toList();
+    }
+
     return KanbanModel(
-      todo: (json['todo'] as List)
-          .map((item) => TaskModel.fromJson(item))
-          .toList(),
-      inProgress: (json['in_progress'] as List)
-          .map((item) => TaskModel.fromJson(item))
-          .toList(),
-      done: (json['done'] as List)
-          .map((item) => TaskModel.fromJson(item))
-          .toList(),
+      todo: parseTasks(json['todo']),
+      inProgress: parseTasks(json['in_progress']),
+      done: parseTasks(json['done']),
     );
   }
 

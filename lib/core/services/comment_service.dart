@@ -5,6 +5,17 @@ import 'api_service.dart';
 class CommentService extends GetxService {
   final ApiService _apiService = Get.find();
 
+  Map<String, dynamic> _extractDataMap(dynamic raw) {
+    if (raw == null) return {};
+    if (raw is Map<String, dynamic>) {
+      if (raw['data'] is Map<String, dynamic>) {
+        return Map<String, dynamic>.from(raw['data']);
+      }
+      return raw;
+    }
+    return {};
+  }
+
   List<dynamic> _extractList(dynamic raw) {
     if (raw == null) return [];
     if (raw is List) return raw;
@@ -51,7 +62,13 @@ class CommentService extends GetxService {
     );
 
     if (response.success) {
-      return CommentModel.fromJson(response.data);
+      final data = _extractDataMap(response.data);
+      final payload = data['comment'] is Map<String, dynamic>
+          ? data['comment'] as Map<String, dynamic>
+          : data;
+      if (payload.isNotEmpty) {
+        return CommentModel.fromJson(payload);
+      }
     }
     return null;
   }

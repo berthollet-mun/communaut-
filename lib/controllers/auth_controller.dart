@@ -34,6 +34,15 @@ class AuthController extends GetxController {
         return true;
       }
 
+      final dynamic directData = res['data'];
+      if (directData is Map<String, dynamic> &&
+          (directData.containsKey('user_id') ||
+              directData.containsKey('id') ||
+              directData.containsKey('email'))) {
+        user.value = UserModel.fromJson(directData);
+        return true;
+      }
+
       // fallback: si res est déjà user
       user.value = UserModel.fromJson(res);
       return true;
@@ -75,6 +84,8 @@ class AuthController extends GetxController {
 
       if (u is Map<String, dynamic>) {
         user.value = UserModel.fromJson(u);
+      } else if (res['data'] is Map<String, dynamic>) {
+        user.value = UserModel.fromJson(res['data']);
       } else {
         user.value = UserModel.fromJson(res);
       }

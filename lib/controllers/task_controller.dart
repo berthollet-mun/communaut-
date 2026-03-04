@@ -262,6 +262,12 @@ class TaskController extends GetxController {
           currentTask.value = null;
         }
 
+        // Force reload from backend to keep kanban strictly in sync.
+        await loadKanbanTasks(
+          communityId: communityId,
+          projectId: projectId,
+        );
+
         // ✅ NOTIFICATION : Tâche supprimée
         _notify(
           'task_deleted',
@@ -392,3 +398,4 @@ class TaskController extends GetxController {
     return (completedTasksCount / totalTasksCount) * 100;
   }
 }
+

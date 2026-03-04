@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:community/app/routes/app_routes.dart';
 import 'package:community/controllers/comment_controller.dart';
 import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/task_controller.dart';
@@ -90,8 +91,9 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
 
   void _startAutoRefresh() {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(const Duration(seconds: 12), (_) async {
+    _pollTimer = Timer.periodic(const Duration(seconds: 30), (_) async {
       if (!mounted) return;
+      if (Get.currentRoute != AppRoutes.taskComments) return;
       if (_isSending) return;
       if (_commentController.isLoading.value) return;
       if (_isPolling) return;

@@ -13,6 +13,7 @@ class TaskModel {
   final DateTime? due_date;
   final int comments_count;
   final DateTime created_at;
+  final DateTime? deleted_at;
 
   TaskModel({
     required this.id,
@@ -29,6 +30,7 @@ class TaskModel {
     this.due_date,
     this.comments_count = 0,
     required this.created_at,
+    this.deleted_at,
   });
 
   factory TaskModel.fromJson(Map<String, dynamic> json) {
@@ -47,6 +49,7 @@ class TaskModel {
       due_date: _parseDate(json['due_date']),
       comments_count: _parseInt(json['comments_count'], defaultValue: 0),
       created_at: _parseDate(json['created_at']) ?? DateTime.now(),
+      deleted_at: _parseDate(json['deleted_at']),
     );
   }
 
@@ -87,6 +90,7 @@ class TaskModel {
       'due_date': due_date?.toIso8601String(),
       'comments_count': comments_count,
       'created_at': created_at.toIso8601String(),
+      'deleted_at': deleted_at?.toIso8601String(),
     };
   }
 
@@ -105,6 +109,7 @@ class TaskModel {
     DateTime? due_date,
     int? comments_count,
     DateTime? created_at,
+    DateTime? deleted_at,
   }) {
     return TaskModel(
       id: id ?? this.id,
@@ -121,6 +126,7 @@ class TaskModel {
       due_date: due_date ?? this.due_date,
       comments_count: comments_count ?? this.comments_count,
       created_at: created_at ?? this.created_at,
+      deleted_at: deleted_at ?? this.deleted_at,
     );
   }
 
@@ -141,4 +147,5 @@ class TaskModel {
   }
 
   bool get isAssigned => assigned_to != null;
+  bool get isDeleted => deleted_at != null;
 }
