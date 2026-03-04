@@ -186,7 +186,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 status: status,
               );
               if (ok) {
-                // await _load(); // Retiré : le contrôleur met à jour l'UI localement
+                await _load();
               } else {
                 Get.snackbar(
                   'Erreur',
@@ -233,7 +233,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     backgroundColor: Colors.green,
                     colorText: Colors.white,
                   );
-                  // await _load(); // Retiré : le contrôleur met à jour l'UI localement
+                  await _load();
                 } else {
                   Get.snackbar(
                     'Erreur',
@@ -307,6 +307,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         if (k == null) {
           return const Center(child: Text('Aucune donnée'));
         }
+        final todoTasks = k.todo.where((t) => !t.isDeleted).toList();
+        final inProgressTasks = k.inProgress.where((t) => !t.isDeleted).toList();
+        final doneTasks = k.done.where((t) => !t.isDeleted).toList();
 
         return RefreshIndicator(
           onRefresh: _load,
@@ -320,10 +323,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 children: [
                   _KanbanColumn(
                     title: 'À faire',
-                    count: k.todo.length,
+                    count: todoTasks.length,
                      headerColor: Colors.red.withOpacity(0.12),
                     titleColor: Colors.red,
-                    tasks: k.todo,
+                    tasks: todoTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
@@ -331,10 +334,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   const SizedBox(width: 12),
                   _KanbanColumn(
                     title: 'En cours',
-                    count: k.inProgress.length,
+                    count: inProgressTasks.length,
                     headerColor: Colors.orange.withOpacity(0.12),
                     titleColor: Colors.orange,
-                    tasks: k.inProgress,
+                    tasks: inProgressTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
@@ -342,10 +345,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   const SizedBox(width: 12),
                   _KanbanColumn(
                     title: 'Terminé',
-                    count: k.done.length,
+                    count: doneTasks.length,
                     headerColor: Colors.green.withOpacity(0.12),
                     titleColor: Colors.green,
-                    tasks: k.done,
+                    tasks: doneTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,

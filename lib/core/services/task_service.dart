@@ -173,10 +173,28 @@ class TaskService extends GetxService {
     required int taskId,
     required String status,
   }) async {
-    return await _apiService.patch(
+    var response = await _apiService.patch(
       '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
       {'status': status},
     );
+
+    // Fallback for servers that block PATCH on web/CORS.
+    if (!response.success) {
+      response = await _apiService.post(
+        '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
+        {'status': status},
+      );
+    }
+
+    // Last fallback: generic task update endpoint.
+    if (!response.success) {
+      response = await _apiService.put(
+        '/communities/$communityId/projects/$projectId/tasks/$taskId',
+        {'status': status},
+      );
+    }
+
+    return response;
   }
 
   Future<ApiResponse> deleteTask({

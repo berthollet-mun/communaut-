@@ -68,6 +68,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     );
 
     if (success) {
+      await _taskController.loadKanbanTasks(
+        communityId: _communityId,
+        projectId: _projectId,
+      );
       await _loadData();
       Get.snackbar(
         'Succès',

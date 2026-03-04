@@ -13,6 +13,17 @@ class TaskController extends GetxController {
   final RxBool isLoading = false.obs;
   final RxString error = ''.obs;
 
+  String _normalizeStatus(String raw) {
+    final value = raw.trim().toLowerCase();
+    if (value.contains('en cours') || value.contains('in_progress')) {
+      return 'En cours';
+    }
+    if (value.contains('termin') || value == 'completed' || value == 'done') {
+      return 'Terminé';
+    }
+    return 'À faire';
+  }
+
   // ✅ Helper pour envoyer des notifications
   void _notify(
     String type,
@@ -189,29 +200,32 @@ class TaskController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
+      final normalizedStatus = _normalizeStatus(status);
 
       final response = await _taskService.updateTaskStatus(
         communityId: communityId,
         projectId: projectId,
         taskId: taskId,
-        status: status,
+        status: normalizedStatus,
       );
 
       if (response.success) {
-        _updateTaskStatusInKanban(taskId, status);
+        _updateTaskStatusInKanban(taskId, normalizedStatus);
 
         if (currentTask.value?.id == taskId) {
-          currentTask.value = currentTask.value?.copyWith(status: status);
+          currentTask.value = currentTask.value?.copyWith(
+            status: normalizedStatus,
+          );
         }
 
         // ✅ NOTIFICATION : Statut changé
-        String icon = status == 'Terminé'
+        String icon = normalizedStatus == 'Terminé'
             ? '✅'
-            : (status == 'En cours' ? '🔄' : '📋');
+            : (normalizedStatus == 'En cours' ? '🔄' : '📋');
         _notify(
           'task_status_changed',
           'Statut modifié',
-          '$icon La tâche est maintenant "$status".',
+          '$icon La tâche est maintenant "$normalizedStatus".',
           relatedId: taskId,
           relatedType: 'task',
         );
@@ -304,14 +318,15 @@ class TaskController extends GetxController {
   // Méthodes privées pour manipuler le kanban
   void _addTaskToKanban(TaskModel task) {
     if (kanban.value != null) {
+      final status = _normalizeStatus(task.status);
       final newKanban = KanbanModel(
-        todo: task.status == 'À faire'
+        todo: status == 'À faire'
             ? [...kanban.value!.todo, task]
             : kanban.value!.todo,
-        inProgress: task.status == 'En cours'
+        inProgress: status == 'En cours'
             ? [...kanban.value!.inProgress, task]
             : kanban.value!.inProgress,
-        done: task.status == 'Terminé'
+        done: status == 'Terminé'
             ? [...kanban.value!.done, task]
             : kanban.value!.done,
       );
@@ -320,8 +335,9 @@ class TaskController extends GetxController {
     }
   }
 
-  void _updateTaskStatusInKanban(int taskId, String newStatus) {
+  void _updateTaskStatusInKanban(int taskId, String newStatusRaw) {
     if (kanban.value == null) return;
+    final newStatus = _normalizeStatus(newStatusRaw);
 
     TaskModel? task;
     List<TaskModel> newTodo = [...kanban.value!.todo];
@@ -355,6 +371,9 @@ class TaskController extends GetxController {
           break;
         case 'Terminé':
           newDone.add(updatedTask);
+          break;
+        default:
+          newTodo.add(updatedTask);
           break;
       }
 

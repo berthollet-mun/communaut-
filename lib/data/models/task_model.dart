@@ -39,7 +39,7 @@ class TaskModel {
       titre: json['titre'] ?? '',
       description: json['description'] ?? '',
       project_nom: json['project_nom'],
-      status: json['status'] ?? 'À faire',
+      status: _normalizeStatus(json['status']),
       assigned_to: _parseInt(json['assigned_to']),
       assigned_nom: json['assigned_nom'],
       assigned_prenom: json['assigned_prenom'],
@@ -92,6 +92,17 @@ class TaskModel {
       'created_at': created_at.toIso8601String(),
       'deleted_at': deleted_at?.toIso8601String(),
     };
+  }
+
+  static String _normalizeStatus(dynamic raw) {
+    final value = (raw ?? '').toString().trim().toLowerCase();
+    if (value.contains('en cours') || value.contains('in_progress')) {
+      return 'En cours';
+    }
+    if (value.contains('termin') || value.contains('done') || value == 'completed') {
+      return 'Terminé';
+    }
+    return 'À faire';
   }
 
   TaskModel copyWith({
