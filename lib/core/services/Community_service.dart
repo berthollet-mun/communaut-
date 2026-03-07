@@ -107,7 +107,7 @@ class CommunityService extends GetxService {
   }
 
   /// ✅ Rejoindre une communauté
-  Future<bool> joinCommunity(String inviteCode) async {
+  Future<Map<String, dynamic>?> joinCommunity(String inviteCode) async {
     final response = await _apiService.post('$_communitiesEndpoint/join', {
       'invite_code': inviteCode,
     });
@@ -115,7 +115,10 @@ class CommunityService extends GetxService {
     if (!response.success) {
       throw Exception(response.error ?? 'Erreur rejoindre communauté');
     }
-    return true;
+
+    final data = _extractDataMap(response.data);
+    if (data.isEmpty) return null;
+    return data;
   }
 
   /// ✅ Détails d'une communauté

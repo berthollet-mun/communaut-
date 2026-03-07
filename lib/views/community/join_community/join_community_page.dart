@@ -21,6 +21,7 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
 
   final TextEditingController _inviteCodeController = TextEditingController();
+  bool _isJoining = false;
 
   @override
   Widget build(BuildContext context) {
@@ -232,33 +233,17 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
 
   /// Bouton pour rejoindre responsive
   Widget _buildJoinButton(ResponsiveHelper responsive) {
-    return Obx(() {
-      if (_communityController.isLoading.value) {
-        return Center(
-          child: Padding(
-            padding: EdgeInsets.symmetric(vertical: responsive.spacing(16)),
-            child: CircularProgressIndicator(
-              strokeWidth: responsive.value<double>(
-                mobile: 2,
-                tablet: 2.5,
-                desktop: 3,
-              ),
-            ),
-          ),
-        );
-      }
-
-      return SizedBox(
-        height: responsive.value<double>(mobile: 50, tablet: 54, desktop: 58),
-        child: PrimaryButton(
-          text: 'Rejoindre la communauté',
-          onPressed: _joinCommunity,
-          fullWidth: true,
-          icon: Icons.login,
-          style: TextStyle(fontSize: responsive.fontSize(16)),
-        ),
-      );
-    });
+    return SizedBox(
+      height: responsive.value<double>(mobile: 50, tablet: 54, desktop: 58),
+      child: PrimaryButton(
+        text: _isJoining ? 'Connexion...' : 'Rejoindre la communauté',
+        onPressed: _joinCommunity,
+        isLoading: _isJoining,
+        fullWidth: true,
+        icon: Icons.login,
+        style: TextStyle(fontSize: responsive.fontSize(16)),
+      ),
+    );
   }
 
   /// Lien pour créer une communauté responsive
@@ -405,13 +390,24 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
   // === Méthode de logique métier inchangée ===
 
   Future<void> _joinCommunity() async {
-    if (_formKey.currentState!.validate()) {
+    if (_isJoining) return;
+    final formState = _formKey.currentState;
+    if (formState == null || !formState.validate()) return;
+
+    try {
+      if (mounted) setState(() => _isJoining = true);
       final success = await _communityController.joinCommunity(
         _inviteCodeController.text.trim().toUpperCase(),
       );
 
+      if (!mounted) return;
+
       if (success) {
-        Get.offNamed(AppRoutes.communitySelect);
+        if (Get.previousRoute == AppRoutes.communitySelect) {
+          Get.back(result: true);
+        } else {
+          Get.offNamed(AppRoutes.communitySelect);
+        }
 
         Get.snackbar(
           'Succès !',
@@ -423,11 +419,24 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
       } else {
         Get.snackbar(
           'Erreur',
-          'Code d\'invitation invalide ou expiré.',
+          _communityController.error.value.isNotEmpty
+              ? _communityController.error.value
+              : 'Code d\'invitation invalide ou expiré.',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
       }
+    } catch (e) {
+      if (mounted) {
+        Get.snackbar(
+          'Erreur',
+          'Une erreur inattendue est survenue: $e',
+          backgroundColor: Colors.red,
+          colorText: Colors.white,
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isJoining = false);
     }
   }
 

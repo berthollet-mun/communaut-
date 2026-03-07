@@ -79,22 +79,47 @@ class CommunityController extends GetxController {
 
   Future<bool> joinCommunity(String inviteCode) async {
     try {
-      isLoading.value = true;
       error.value = '';
-      final success = await _communityService.joinCommunity(inviteCode);
-      if (success) {
-        await loadCommunities();
-        // Si on vient de rejoindre, on pourrait auto-sélectionner la dernière
-        if (communities.isNotEmpty) {
-          await setCurrentCommunity(communities.last);
-        }
+      final joinedData = await _communityService.joinCommunity(inviteCode);
+      if (joinedData == null) {
+        error.value = 'Réponse invalide lors de la jointure.';
+        return false;
       }
-      return success;
+
+      final joinedCommunity = CommunityModel.fromJson({
+        ...joinedData,
+        'invite_code': inviteCode.trim().toUpperCase(),
+      });
+
+      if (joinedCommunity.community_id <= 0) {
+        error.value = 'Communauté invalide (ID manquant).';
+        return false;
+      }
+
+      final index = communities.indexWhere(
+        (c) => c.community_id == joinedCommunity.community_id,
+      );
+      if (index == -1) {
+        communities.add(joinedCommunity);
+      } else {
+        final existing = communities[index];
+        communities[index] = joinedCommunity.copyWith(
+          invite_code: existing.invite_code.isNotEmpty
+              ? existing.invite_code
+              : joinedCommunity.invite_code,
+        );
+      }
+
+      await setCurrentCommunity(
+        index == -1 ? joinedCommunity : communities[index],
+      );
+
+      // Refresh complete list in background, without blocking UI navigation.
+      loadCommunitiesSilently();
+      return true;
     } catch (e) {
       error.value = 'Erreur de rejoindre: $e';
       return false;
-    } finally {
-      isLoading.value = false;
     }
   }
 
