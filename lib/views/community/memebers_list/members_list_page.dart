@@ -317,7 +317,9 @@ class _MembersListPageState extends State<MembersListPage> {
     } else {
       Get.snackbar(
         'Erreur',
-        'Impossible de mettre à jour le rôle',
+        _communityController.error.value.isNotEmpty
+            ? _communityController.error.value
+            : 'Impossible de mettre à jour le rôle',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );

@@ -4,6 +4,7 @@ import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/community_controller.dart';
 import 'package:community/controllers/notification_controller.dart';
 import 'package:community/controllers/theme_controller.dart';
+import 'package:community/core/services/project_service.dart';
 import 'package:community/core/utils/responsive_helper.dart';
 import 'package:community/core/utils/widgets/responsive_builder.dart';
 import 'package:community/data/models/user_model.dart';
@@ -23,6 +24,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final AuthController _authController = Get.find();
   final ThemeController _themeController = Get.find();
   final CommunityController _communityController = Get.find();
+  final ProjectService _projectService = Get.find();
 
   late final NotificationController _notificationController;
 
@@ -30,6 +32,8 @@ class _ProfilePageState extends State<ProfilePage> {
   final RxBool _statsLoading = false.obs;
   final RxInt _communitiesCount = 0.obs;
   final RxInt _projectsCount = 0.obs;
+  final RxInt _tasksCreated = 0.obs;
+  final RxInt _tasksCompleted = 0.obs;
 
   @override
   void initState() {
@@ -72,10 +76,16 @@ class _ProfilePageState extends State<ProfilePage> {
     _communitiesCount.value = communities.length;
 
     int totalProjects = 0;
+    int totalTasks = 0;
+    int totalDone = 0;
     for (final c in communities) {
       totalProjects += c.projects_count; // ✅ int non-null chez toi
+      totalTasks += c.tasks_count;
+      totalDone += c.completed_tasks;
     }
     _projectsCount.value = totalProjects;
+    _tasksCreated.value = totalTasks;
+    _tasksCompleted.value = totalDone;
   }
 
   Future<void> _loadStatsFromApi() async {
@@ -84,8 +94,27 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // ✅ refresh silencieux: ne perturbe pas d'autres pages
       await _communityController.loadCommunitiesSilently();
+      final communities = _communityController.communities.toList();
+      var totalProjects = 0;
+      var totalTasks = 0;
+      var totalDone = 0;
 
-      _recomputeStatsFromCache();
+      for (final c in communities) {
+        final projects = await _projectService.getProjects(
+          communityId: c.community_id,
+        );
+        totalProjects += projects.length;
+
+        for (final p in projects) {
+          totalTasks += p.tasks_count;
+          totalDone += p.completed_tasks;
+        }
+      }
+
+      _communitiesCount.value = communities.length;
+      _projectsCount.value = totalProjects;
+      _tasksCreated.value = totalTasks;
+      _tasksCompleted.value = totalDone;
     } catch (_) {
       _recomputeStatsFromCache();
     } finally {
@@ -566,24 +595,30 @@ class _ProfilePageState extends State<ProfilePage> {
                   responsive: responsive,
                 );
               }),
-              _buildStatCard(
-                icon: Icons.task_outlined,
-                value: '—',
-                label: 'Tâches créées',
-                subtitle:
-                    'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
-                color: Colors.orange,
-                responsive: responsive,
-              ),
-              _buildStatCard(
-                icon: Icons.check_circle_outline,
-                value: '—',
-                label: 'Tâches terminées',
-                subtitle:
-                    'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
-                color: Colors.purple,
-                responsive: responsive,
-              ),
+              Obx(() {
+                final value = _statsLoading.value
+                    ? '…'
+                    : '${_tasksCreated.value}';
+                return _buildStatCard(
+                  icon: Icons.task_outlined,
+                  value: value,
+                  label: 'Tâches créées',
+                  color: Colors.orange,
+                  responsive: responsive,
+                );
+              }),
+              Obx(() {
+                final value = _statsLoading.value
+                    ? '…'
+                    : '${_tasksCompleted.value}';
+                return _buildStatCard(
+                  icon: Icons.check_circle_outline,
+                  value: value,
+                  label: 'Achevées',
+                  color: Colors.purple,
+                  responsive: responsive,
+                );
+              }),
             ],
           ),
         ],

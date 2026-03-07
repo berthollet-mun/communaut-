@@ -179,10 +179,24 @@ class CommunityService extends GetxService {
     required int memberId,
     required String role,
   }) async {
-    final response = await _apiService.patch(
-      '$_communitiesEndpoint/$communityId/members/$memberId',
-      {'role': role},
-    );
+    final endpoint = '$_communitiesEndpoint/$communityId/members/$memberId';
+    final payload = {'role': role};
+
+    // 1) Attempt with PATCH (preferred)
+    var response = await _apiService.patch(endpoint, payload);
+
+    // 2) Web/CORS fallback: POST + method override
+    if (!response.success) {
+      response = await _apiService.post(endpoint, {
+        ...payload,
+        '_method': 'PATCH',
+      });
+    }
+
+    // 3) Last fallback: PUT
+    if (!response.success) {
+      response = await _apiService.put(endpoint, payload);
+    }
 
     if (!response.success) {
       throw Exception(response.error ?? 'Erreur update role');
