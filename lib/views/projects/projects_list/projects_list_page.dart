@@ -35,6 +35,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     if (community == null) return;
 
     await _projectController.loadProjects(community.community_id);
+    await _projectController.refreshAllProjectsStats(community.community_id);
   }
 
   @override
@@ -112,18 +113,25 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
           padding: EdgeInsets.zero,
           child: RefreshIndicator(
             onRefresh: _loadProjects,
-            child: GridView.builder(
-              padding: const EdgeInsets.all(16),
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: responsive.isMobile ? 1 : 2,
-                crossAxisSpacing: 16,
-                mainAxisSpacing: 16,
-                mainAxisExtent: 200, // Fixed height for cards
-              ),
-              itemCount: projects.length,
-              itemBuilder: (context, index) =>
-                  _buildProjectCard(projects[index], community),
-            ),
+            child: responsive.isMobile
+                ? ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: projects.length,
+                    itemBuilder: (context, index) =>
+                        _buildProjectCard(projects[index], community),
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.all(16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      mainAxisExtent: 285, // Fixed height for desktop/tablet cards
+                    ),
+                    itemCount: projects.length,
+                    itemBuilder: (context, index) =>
+                        _buildProjectCard(projects[index], community),
+                  ),
           ),
         );
       }),
@@ -141,6 +149,10 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
   }
 
   Widget _buildProjectCard(ProjectModel project, CommunityModel community) {
+    final progress = project.completion_percentage.clamp(0.0, 100.0).toDouble();
+    final completedTasks = project.completed_tasks;
+    final totalTasks = project.tasks_count;
+    final remainingTasks = (totalTasks - completedTasks).clamp(0, totalTasks);
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -239,7 +251,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                   ),
                   _buildStat(
                     Icons.check_circle_outline,
-                    '${project.completion_percentage.toStringAsFixed(0)}%',
+                    '${progress.toStringAsFixed(0)}%',
                     'Terminé',
                   ),
                   _buildStat(
@@ -251,13 +263,76 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
               ),
               const SizedBox(height: 12),
 
-              // Progress bar
-              LinearProgressIndicator(
-                value: project.completion_percentage / 100,
-                backgroundColor: Colors.grey[200],
-                color: _getProgressColor(project.completion_percentage),
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(3),
+              // Progression toujours lisible, même à 0%
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.grey[200]!),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Progression',
+                          style: AppTheme.bodyText2.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          '${progress.toStringAsFixed(0)}%',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w700,
+                            color: _getProgressColor(progress),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: progress / 100,
+                        backgroundColor: Colors.grey[300],
+                        color: _getProgressColor(progress),
+                        minHeight: 8,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      totalTasks > 0
+                          ? '$completedTasks/$totalTasks tâches terminées'
+                          : 'Aucune tâche pour le moment',
+                      style: AppTheme.bodyText2.copyWith(fontSize: 11),
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _buildMiniTaskStat(
+                            icon: Icons.pending_actions_outlined,
+                            label: 'À faire',
+                            value: '$remainingTasks',
+                            color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMiniTaskStat(
+                            icon: Icons.check_circle_outline,
+                            label: 'Achevées',
+                            value: '$completedTasks',
+                            color: Colors.green,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -278,6 +353,40 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
         ),
         Text(label, style: AppTheme.bodyText2.copyWith(fontSize: 11)),
       ],
+    );
+  }
+
+  Widget _buildMiniTaskStat({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '$label: $value',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
