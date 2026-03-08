@@ -748,7 +748,14 @@ class _ProfilePageState extends State<ProfilePage> {
               Icons.arrow_forward_ios,
               size: responsive.iconSize(16),
             ),
-            onTap: () => Get.toNamed(AppRoutes.notifications),
+            onTap: () {
+              Get.snackbar(
+                'Notifications',
+                'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+                backgroundColor: Colors.blue,
+                colorText: Colors.white,
+              );
+            },
           ),
           const Divider(),
           ListTile(
