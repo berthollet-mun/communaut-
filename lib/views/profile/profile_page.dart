@@ -5,6 +5,7 @@ import 'package:community/controllers/community_controller.dart';
 import 'package:community/controllers/notification_controller.dart';
 import 'package:community/controllers/theme_controller.dart';
 import 'package:community/core/services/project_service.dart';
+import 'package:community/core/services/task_service.dart';
 import 'package:community/core/utils/responsive_helper.dart';
 import 'package:community/core/utils/widgets/responsive_builder.dart';
 import 'package:community/data/models/user_model.dart';
@@ -25,6 +26,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final ThemeController _themeController = Get.find();
   final CommunityController _communityController = Get.find();
   final ProjectService _projectService = Get.find();
+  final TaskService _taskService = Get.find();
 
   late final NotificationController _notificationController;
 
@@ -106,8 +108,19 @@ class _ProfilePageState extends State<ProfilePage> {
         totalProjects += projects.length;
 
         for (final p in projects) {
-          totalTasks += p.tasks_count;
-          totalDone += p.completed_tasks;
+          final kanban = await _taskService.getKanbanTasks(
+            communityId: c.community_id,
+            projectId: p.id,
+          );
+
+          if (kanban != null) {
+            totalTasks += kanban.totalTasks;
+            totalDone += kanban.done.length;
+          } else {
+            // Fallback if task endpoint is unavailable for a project.
+            totalTasks += p.tasks_count;
+            totalDone += p.completed_tasks;
+          }
         }
       }
 

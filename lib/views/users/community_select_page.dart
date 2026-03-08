@@ -593,17 +593,10 @@ class _CommunitySelectPageState extends State<CommunitySelectPage> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) return "Aujourd'hui";
-    if (difference.inDays == 1) return 'Hier';
-    if (difference.inDays < 7) return 'Il y a ${difference.inDays} jours';
-    if (difference.inDays < 30) {
-      final weeks = (difference.inDays / 7).floor();
-      return 'Il y a $weeks semaine${weeks > 1 ? 's' : ''}';
-    }
-    return '${date.day}/${date.month}/${date.year}';
+    final day = date.day.toString().padLeft(2, '0');
+    final month = date.month.toString().padLeft(2, '0');
+    final year = date.year.toString();
+    return '$day/$month/$year';
   }
 }
 
