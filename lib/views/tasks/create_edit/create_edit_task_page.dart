@@ -228,6 +228,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         description: _descriptionController.text.trim(),
         assignedTo: assignedToId,
         dueDate: dueDateStr,
+        clearAssignment: _assignedTo == null,
       );
 
       if (success) {

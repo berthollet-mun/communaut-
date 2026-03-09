@@ -15,11 +15,25 @@ class TaskController extends GetxController {
 
   String _normalizeStatus(String raw) {
     final value = raw.trim().toLowerCase();
-    if (value.contains('en cours') || value.contains('in_progress')) {
+    if (value.contains('en cours') ||
+        value.contains('en_cours') ||
+        value.contains('in_progress') ||
+        value.contains('in progress') ||
+        value == 'doing' ||
+        value == 'ongoing') {
       return 'En cours';
     }
-    if (value.contains('termin') || value == 'completed' || value == 'done') {
+    if (value.contains('termin') ||
+        value == 'completed' ||
+        value == 'done') {
       return 'Terminé';
+    }
+    if (value.contains('todo') ||
+        value.contains('to_do') ||
+        value.contains('a faire') ||
+        value.contains('à faire') ||
+        value == 'pending') {
+      return 'À faire';
     }
     return 'À faire';
   }
@@ -146,6 +160,7 @@ class TaskController extends GetxController {
     String? description,
     int? assignedTo,
     String? dueDate,
+    bool clearAssignment = false,
   }) async {
     try {
       isLoading.value = true;
@@ -159,6 +174,7 @@ class TaskController extends GetxController {
         description: description,
         assignedTo: assignedTo,
         dueDate: dueDate,
+        clearAssignment: clearAssignment,
       );
 
       if (response.success) {
@@ -210,12 +226,27 @@ class TaskController extends GetxController {
       );
 
       if (response.success) {
+        final updated = await _taskService.getTaskDetails(
+          communityId: communityId,
+          projectId: projectId,
+          taskId: taskId,
+        );
+        final serverStatus = updated != null
+            ? _normalizeStatus(updated.status)
+            : null;
+
+        if (serverStatus != null && serverStatus != normalizedStatus) {
+          error.value =
+              'Le serveur n\'a pas appliqué le statut demandé (actuel: $serverStatus).';
+          await loadKanbanTasks(communityId: communityId, projectId: projectId);
+          return false;
+        }
+
         _updateTaskStatusInKanban(taskId, normalizedStatus);
 
         if (currentTask.value?.id == taskId) {
-          currentTask.value = currentTask.value?.copyWith(
-            status: normalizedStatus,
-          );
+          currentTask.value = updated?.copyWith(status: normalizedStatus) ??
+              currentTask.value?.copyWith(status: normalizedStatus);
         }
 
         // ✅ NOTIFICATION : Statut changé

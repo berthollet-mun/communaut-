@@ -4,7 +4,9 @@ import 'package:community/app/routes/app_routes.dart';
 import 'package:community/controllers/task_controller.dart';
 import 'package:community/controllers/project_controller.dart';
 import 'package:community/controllers/community_controller.dart';
+import 'package:community/controllers/auth_controller.dart';
 import 'package:community/data/models/task_model.dart';
+import 'package:community/data/models/member_model.dart';
 import 'package:community/views/shared/widgets/loading_widget.dart';
 
 class KanbanBoardPage extends StatefulWidget {
@@ -18,6 +20,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   final TaskController _taskController = Get.find();
   final ProjectController _projectController = Get.find();
   final CommunityController _communityController = Get.find();
+  final AuthController _authController = Get.find();
 
   late int _communityId;
   late int _projectId;
@@ -146,6 +149,20 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   },
                 ),
                 const Divider(),
+                ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: const Text('Changer l\'assignation'),
+                  subtitle: Text(
+                    task.assignedFullName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  onTap: () async {
+                    Get.back();
+                    await _showAssignmentSheet(task);
+                  },
+                ),
+                const Divider(),
                 _buildStatusTile(task, 'À faire', Colors.red),
                 _buildStatusTile(task, 'En cours', Colors.orange),
                 _buildStatusTile(task, 'Terminé', Colors.green),
@@ -165,6 +182,132 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       ),
       isScrollControlled: true,
     );
+  }
+
+  Future<void> _showAssignmentSheet(TaskModel task) async {
+    List<MemberModel> members = [];
+    try {
+      members = await _communityController.getCommunityMembers(_communityId);
+    } catch (_) {}
+
+    final currentUserId = _authController.user.value?.user_id;
+    final assignableMembers = members.where((m) {
+      final isCurrentUser = currentUserId != null && m.id == currentUserId;
+      final isAdmin = m.role.toUpperCase() == 'ADMIN';
+      return !isCurrentUser && !isAdmin;
+    }).toList();
+
+    if (!mounted) return;
+
+    await showModalBottomSheet(
+      context: context,
+      builder: (context) => SafeArea(
+        child: SizedBox(
+          height: MediaQuery.of(context).size.height * 0.62,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  'Changer l\'assignation',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.person_off_outlined),
+                      title: const Text('Non assigné'),
+                      trailing: task.assigned_to == null
+                          ? const Icon(Icons.check, color: Colors.green)
+                          : null,
+                      onTap: () async {
+                        Navigator.of(context).pop();
+                        await _updateTaskAssignment(task, null);
+                      },
+                    ),
+                    const Divider(),
+                    if (assignableMembers.isEmpty)
+                      const ListTile(
+                        leading: Icon(Icons.info_outline),
+                        title: Text('Aucun membre assignable'),
+                        subtitle: Text(
+                          'Les administrateurs et votre compte sont exclus.',
+                        ),
+                      )
+                    else
+                      ...assignableMembers.map(
+                        (member) => ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.blue,
+                            child: Text(
+                              _initials(member),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                          title: Text(member.fullName),
+                          subtitle: Text(member.email),
+                          trailing: task.assigned_to == member.id
+                              ? const Icon(Icons.check, color: Colors.green)
+                              : null,
+                          onTap: () async {
+                            Navigator.of(context).pop();
+                            await _updateTaskAssignment(task, member.id);
+                          },
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _updateTaskAssignment(TaskModel task, int? assignedTo) async {
+    final ok = await _taskController.updateTask(
+      communityId: _communityId,
+      projectId: _projectId,
+      taskId: task.id,
+      assignedTo: assignedTo,
+      clearAssignment: assignedTo == null,
+    );
+
+    if (ok) {
+      await _load();
+      if (!mounted) return;
+      Get.snackbar(
+        'Succès',
+        assignedTo == null
+            ? 'La tâche a été désassignée'
+            : 'Assignation mise à jour',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } else {
+      Get.snackbar(
+        'Erreur',
+        _taskController.error.value.isNotEmpty
+            ? _taskController.error.value
+            : 'Impossible de changer l\'assignation',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
+  }
+
+  String _initials(MemberModel member) {
+    final p = member.prenom.trim();
+    final n = member.nom.trim();
+    final first = p.isNotEmpty ? p[0] : 'U';
+    final second = n.isNotEmpty ? n[0] : 'U';
+    return '$first$second'.toUpperCase();
   }
 
   Widget _buildStatusTile(TaskModel task, String status, Color color) {

@@ -143,11 +143,12 @@ class TaskService extends GetxService {
     String? description,
     int? assignedTo,
     String? dueDate,
+    bool clearAssignment = false,
   }) async {
     final Map<String, dynamic> data = {};
     if (titre != null) data['titre'] = titre;
     if (description != null) data['description'] = description;
-    if (assignedTo != null) data['assigned_to'] = assignedTo;
+    if (assignedTo != null || clearAssignment) data['assigned_to'] = assignedTo;
     if (dueDate != null) data['due_date'] = dueDate;
 
     var response = await _apiService.put(
@@ -173,30 +174,96 @@ class TaskService extends GetxService {
     required int taskId,
     required String status,
   }) async {
-    var response = await _apiService.patch(
-      '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
-      {'status': status},
+    final statusCandidates = _statusCandidates(status);
+    final currentTask = await getTaskDetails(
+      communityId: communityId,
+      projectId: projectId,
+      taskId: taskId,
     );
 
-    // Fallback for servers that block PATCH on web/CORS.
-    if (!response.success) {
-      response = await _apiService.post(
-        '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
-        {'status': status},
-      );
+    ApiResponse? lastResponse;
+    for (final candidate in statusCandidates) {
+      final payloads = <Map<String, dynamic>>[
+        {'status': candidate},
+        {'statut': candidate},
+        {'task_status': candidate},
+        {'etat': candidate},
+      ];
+      final fullPayloads = _fullTaskPayloadCandidates(currentTask, candidate);
+
+      for (final payload in payloads) {
+        var response = await _apiService.patch(
+          '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
+          payload,
+        );
+        if (response.success) return response;
+        lastResponse = response;
+
+        response = await _apiService.post(
+          '/communities/$communityId/projects/$projectId/tasks/$taskId/status',
+          payload,
+        );
+        if (response.success) return response;
+        lastResponse = response;
+      }
+
+      for (final fullPayload in fullPayloads) {
+        final response = await _apiService.put(
+          '/communities/$communityId/projects/$projectId/tasks/$taskId',
+          fullPayload,
+        );
+        if (response.success) return response;
+        lastResponse = response;
+      }
     }
 
-    // Last fallback: generic task update endpoint.
-    if (!response.success) {
-      response = await _apiService.put(
-        '/communities/$communityId/projects/$projectId/tasks/$taskId',
-        {'status': status},
-      );
-    }
-
-    return response;
+    return lastResponse ??
+        ApiResponse.error(
+          'Impossible de changer le statut',
+          code: 'STATUS_UPDATE_FAILED',
+        );
   }
 
+  List<String> _statusCandidates(String status) {
+    final value = status.trim().toLowerCase();
+    if (value.contains('termin') || value == 'done' || value == 'completed') {
+      return ['Terminé', 'Terminée', 'termine', 'done', 'completed'];
+    }
+    if (value.contains('en cours') ||
+        value.contains('in_progress') ||
+        value.contains('in progress') ||
+        value == 'doing') {
+      return ['En cours', 'en cours', 'in_progress', 'in progress', 'doing'];
+    }
+    return ['À faire', 'A faire', 'a_faire', 'todo', 'to_do', 'pending'];
+  }
+
+  List<Map<String, dynamic>> _fullTaskPayloadCandidates(
+    TaskModel? task,
+    String status,
+  ) {
+    if (task == null) {
+      return const [];
+    }
+
+    final dueDate = task.due_date != null
+        ? '${task.due_date!.year.toString().padLeft(4, '0')}-${task.due_date!.month.toString().padLeft(2, '0')}-${task.due_date!.day.toString().padLeft(2, '0')}'
+        : null;
+
+    final base = <String, dynamic>{
+      'titre': task.titre,
+      'description': task.description,
+      'assigned_to': task.assigned_to,
+      'due_date': dueDate,
+    };
+
+    return [
+      {...base, 'status': status},
+      {...base, 'statut': status},
+      {...base, 'task_status': status},
+      {...base, 'etat': status},
+    ];
+  }
   Future<ApiResponse> deleteTask({
     required int communityId,
     required int projectId,

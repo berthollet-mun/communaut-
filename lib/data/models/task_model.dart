@@ -96,11 +96,25 @@ class TaskModel {
 
   static String _normalizeStatus(dynamic raw) {
     final value = (raw ?? '').toString().trim().toLowerCase();
-    if (value.contains('en cours') || value.contains('in_progress')) {
+    if (value.contains('en cours') ||
+        value.contains('en_cours') ||
+        value.contains('in_progress') ||
+        value.contains('in progress') ||
+        value == 'doing' ||
+        value == 'ongoing') {
       return 'En cours';
     }
-    if (value.contains('termin') || value.contains('done') || value == 'completed') {
+    if (value.contains('termin') ||
+        value.contains('done') ||
+        value == 'completed') {
       return 'Terminé';
+    }
+    if (value.contains('todo') ||
+        value.contains('to_do') ||
+        value.contains('a faire') ||
+        value.contains('à faire') ||
+        value == 'pending') {
+      return 'À faire';
     }
     return 'À faire';
   }

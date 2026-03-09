@@ -63,12 +63,38 @@ class CommunityModel {
       // ✅ si role absent -> "" (important pour ne pas écraser ADMIN)
       role: _parseRole(roleRaw),
 
-      joined_at: _parseDate(base['joined_at']),
-      created_at: _parseDate(base['created_at']),
+      joined_at: _parseDate(base['joined_at'] ?? base['joinedAt']),
+      created_at: _parseDate(
+        base['created_at'] ??
+            base['createdAt'] ??
+            base['creation_date'] ??
+            base['date_creation'],
+      ),
       creator_nom: base['creator_nom']?.toString(),
       creator_prenom: base['creator_prenom']?.toString(),
-      members_count: _parseInt(base['members_count'], defaultValue: 1),
-      projects_count: _parseInt(base['projects_count'], defaultValue: 0),
+      members_count: _parseCount(
+        base,
+        keys: const [
+          'members_count',
+          'member_count',
+          'membersCount',
+          'total_members',
+          'users_count',
+        ],
+        listKeys: const ['members', 'users'],
+        defaultValue: 0,
+      ),
+      projects_count: _parseCount(
+        base,
+        keys: const [
+          'projects_count',
+          'project_count',
+          'projectsCount',
+          'total_projects',
+        ],
+        listKeys: const ['projects'],
+        defaultValue: 0,
+      ),
       tasks_count: _parseInt(base['tasks_count'] ?? base['total_tasks'], defaultValue: 0),
       completed_tasks: _parseInt(base['completed_tasks'] ?? base['done_tasks'], defaultValue: 0),
     );
@@ -100,6 +126,27 @@ class CommunityModel {
       }
     }
     return null;
+  }
+
+  static int _parseCount(
+    Map<String, dynamic> source, {
+    required List<String> keys,
+    required List<String> listKeys,
+    int defaultValue = 0,
+  }) {
+    for (final key in keys) {
+      if (source.containsKey(key)) {
+        final parsed = _parseInt(source[key], defaultValue: defaultValue);
+        return parsed < 0 ? 0 : parsed;
+      }
+    }
+
+    for (final key in listKeys) {
+      final raw = source[key];
+      if (raw is List) return raw.length;
+    }
+
+    return defaultValue;
   }
 
   // ✅ corrige les entités HTML qu’on voit dans tes screenshots (&quot; &#039; ...)

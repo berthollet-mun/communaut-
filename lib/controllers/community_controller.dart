@@ -32,7 +32,8 @@ class CommunityController extends GetxController {
       isLoading.value = true;
       error.value = '';
       final list = await _communityService.getUserCommunities();
-      communities.assignAll(list);
+      final enriched = await _loadDetailsForCommunities(list);
+      communities.assignAll(enriched);
     } catch (e) {
       error.value = 'Erreur de chargement: $e';
     } finally {
@@ -43,8 +44,32 @@ class CommunityController extends GetxController {
   Future<void> loadCommunitiesSilently() async {
     try {
       final list = await _communityService.getUserCommunities();
-      communities.assignAll(list);
+      final enriched = await _loadDetailsForCommunities(list);
+      communities.assignAll(enriched);
     } catch (_) {}
+  }
+
+  Future<List<CommunityModel>> _loadDetailsForCommunities(
+    List<CommunityModel> list,
+  ) async {
+    if (list.isEmpty) return list;
+
+    final futures = list.map((community) async {
+      if (community.community_id <= 0) return community;
+      try {
+        final details = await _communityService.getCommunityDetails(
+          community.community_id,
+        );
+        if (details == null || details.community_id <= 0) return community;
+        return details.copyWith(
+          role: details.role.isNotEmpty ? details.role : community.role,
+        );
+      } catch (_) {
+        return community;
+      }
+    });
+
+    return Future.wait(futures);
   }
 
   Future<CommunityModel?> createCommunity({
