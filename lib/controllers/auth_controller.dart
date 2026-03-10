@@ -1,8 +1,20 @@
 // ignore_for_file: avoid_print
 
-import 'package:community/data/models/user_model.dart';
 import 'package:community/core/services/auth_service.dart';
+import 'package:community/data/models/user_model.dart';
 import 'package:get/get.dart';
+
+class RegisterResult {
+  final bool success;
+  final bool isAuthenticated;
+  final String message;
+
+  const RegisterResult({
+    required this.success,
+    required this.isAuthenticated,
+    required this.message,
+  });
+}
 
 class AuthController extends GetxController {
   final AuthService _authService = Get.find();
@@ -19,13 +31,10 @@ class AuthController extends GetxController {
       final res = await _authService.login(email: email, password: password);
 
       if (res == null) {
-        // AuthService a déjà loggé
         error.value = 'Email ou mot de passe incorrect';
         return false;
       }
 
-      // res contient la réponse complète (ou au moins user)
-      // On tente plusieurs chemins
       final dynamic u =
           res['user'] ?? (res['data'] is Map ? (res['data']['user']) : null);
 
@@ -43,7 +52,6 @@ class AuthController extends GetxController {
         return true;
       }
 
-      // fallback: si res est déjà user
       user.value = UserModel.fromJson(res);
       return true;
     } catch (e) {
@@ -54,7 +62,7 @@ class AuthController extends GetxController {
     }
   }
 
-  Future<bool> register({
+  Future<RegisterResult> register({
     required String email,
     required String password,
     required String nom,
@@ -64,39 +72,133 @@ class AuthController extends GetxController {
       isLoading.value = true;
       error.value = '';
 
-      final res = await _authService.register(
+      final response = await _authService.register(
         email: email,
         password: password,
         nom: nom,
         prenom: prenom,
       );
 
-      if (res == null) {
-        // ✅ Ici, l'erreur est déjà dans ApiService, mais comme AuthService retourne null
-        // on met un message générique (au moins, ApiService loggue la vraie erreur)
-        error.value =
-            'Inscription échouée. Vérifie le message exact dans la console (API RESPONSE).';
-        return false;
+      if (!response.success) {
+        final message = _normalizeRegisterError(response.displayMessage);
+        error.value = message;
+        return RegisterResult(
+          success: false,
+          isAuthenticated: false,
+          message: message,
+        );
       }
 
-      final dynamic u =
-          res['user'] ?? (res['data'] is Map ? (res['data']['user']) : null);
+      final data = response.data is Map<String, dynamic>
+          ? response.data as Map<String, dynamic>
+          : <String, dynamic>{};
+      final token = _pick(data, 'token')?.toString().trim() ?? '';
+      final isAuthenticated = token.isNotEmpty;
+      final userPayload = _extractUserPayload(data);
 
-      if (u is Map<String, dynamic>) {
-        user.value = UserModel.fromJson(u);
-      } else if (res['data'] is Map<String, dynamic>) {
-        user.value = UserModel.fromJson(res['data']);
-      } else {
-        user.value = UserModel.fromJson(res);
+      if (userPayload != null) {
+        user.value = UserModel.fromJson(userPayload);
+      } else if (_looksLikeUserPayload(data)) {
+        user.value = UserModel.fromJson(data);
+      } else if (!isAuthenticated) {
+        user.value = null;
       }
 
-      return true;
+      return RegisterResult(
+        success: true,
+        isAuthenticated: isAuthenticated,
+        message: _normalizeRegisterSuccess(
+          response.displayMessage,
+          isAuthenticated: isAuthenticated,
+        ),
+      );
     } catch (e) {
-      error.value = 'Erreur d\'inscription: $e';
-      return false;
+      final message = _normalizeRegisterError('Erreur d\'inscription: $e');
+      error.value = message;
+      return RegisterResult(
+        success: false,
+        isAuthenticated: false,
+        message: message,
+      );
     } finally {
       isLoading.value = false;
     }
+  }
+
+  dynamic _pick(Map<String, dynamic> data, String key) {
+    if (data.containsKey(key)) return data[key];
+
+    final nestedData = data['data'];
+    if (nestedData is Map<String, dynamic> && nestedData.containsKey(key)) {
+      return nestedData[key];
+    }
+
+    final nestedUser = data['user'];
+    if (nestedUser is Map<String, dynamic> && nestedUser.containsKey(key)) {
+      return nestedUser[key];
+    }
+
+    return null;
+  }
+
+  Map<String, dynamic>? _extractUserPayload(Map<String, dynamic> data) {
+    final nestedUser = data['user'];
+    if (nestedUser is Map<String, dynamic>) {
+      return nestedUser;
+    }
+
+    final nestedData = data['data'];
+    if (nestedData is Map<String, dynamic>) {
+      final userFromNestedData = nestedData['user'];
+      if (userFromNestedData is Map<String, dynamic>) {
+        return userFromNestedData;
+      }
+
+      if (_looksLikeUserPayload(nestedData)) {
+        return nestedData;
+      }
+    }
+
+    return null;
+  }
+
+  bool _looksLikeUserPayload(Map<String, dynamic> data) {
+    return data.containsKey('email') ||
+        data.containsKey('user_id') ||
+        data.containsKey('id');
+  }
+
+  String _normalizeRegisterSuccess(
+    String rawMessage, {
+    required bool isAuthenticated,
+  }) {
+    final message = rawMessage.trim();
+    if (message.isNotEmpty) {
+      return message;
+    }
+
+    if (isAuthenticated) {
+      return 'Votre compte a été créé avec succès.';
+    }
+
+    return 'Votre compte a été créé. Connectez-vous pour continuer.';
+  }
+
+  String _normalizeRegisterError(String rawMessage) {
+    final message = rawMessage.trim();
+    if (message.isEmpty) {
+      return 'Inscription impossible pour le moment. Réessayez dans quelques instants.';
+    }
+
+    final lowered = message.toLowerCase();
+    if (lowered.contains('failed to fetch') ||
+        lowered.contains('clientexception') ||
+        lowered.contains('network_error') ||
+        lowered.contains('socketexception')) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion Internet puis réessayez.';
+    }
+
+    return message;
   }
 
   Future<bool> loadProfile() async {

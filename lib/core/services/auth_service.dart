@@ -1,6 +1,7 @@
 // ignore_for_file: avoid_print
 
 import 'package:get/get.dart';
+import '../../data/responses/api_response.dart';
 import 'api_service.dart';
 import 'storage_service.dart';
 
@@ -30,7 +31,7 @@ class AuthService extends GetxService {
     return null;
   }
 
-  Future<Map<String, dynamic>?> register({
+  Future<ApiResponse> register({
     required String email,
     required String password,
     required String nom,
@@ -48,8 +49,8 @@ class AuthService extends GetxService {
     print('Register response data: ${response.data}');
     print('Register response message: ${response.message}');
 
-    if (response.success && response.data != null) {
-      final data = response.data!;
+    if (response.success && response.data is Map<String, dynamic>) {
+      final data = response.data! as Map<String, dynamic>;
 
       final token = _pick(data, 'token')?.toString();
       final userIdRaw = _pick(data, 'user_id');
@@ -63,11 +64,11 @@ class AuthService extends GetxService {
         await _storageService.setUserId(uid);
       }
 
-      return data;
+      return response;
     }
 
     // ✅ IMPORTANT: on laisse le controller afficher response.message
-    return null;
+    return response;
   }
 
   Future<Map<String, dynamic>?> login({

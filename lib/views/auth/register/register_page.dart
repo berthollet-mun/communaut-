@@ -1,6 +1,6 @@
-import 'package:community/core/utils/validators.dart';
-import 'package:community/core/utils/responsive_helper.dart';
 import 'package:community/controllers/auth_controller.dart';
+import 'package:community/core/utils/responsive_helper.dart';
+import 'package:community/core/utils/validators.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../app/routes/app_routes.dart';
@@ -44,16 +44,9 @@ class _RegisterPageState extends State<RegisterPage> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   SizedBox(height: responsive.spacing(20)),
-
-                  // En-tête
                   _buildHeader(responsive),
-
                   SizedBox(height: responsive.spacing(32)),
-
-                  // Formulaire
                   _buildForm(responsive),
-
-                  // Affichage des erreurs
                   _buildErrorDisplay(responsive),
                 ],
               ),
@@ -64,7 +57,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// AppBar responsive
   PreferredSizeWidget _buildAppBar(ResponsiveHelper responsive) {
     return AppBar(
       title: Text(
@@ -83,7 +75,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// En-tête avec icône et textes
   Widget _buildHeader(ResponsiveHelper responsive) {
     return Column(
       children: [
@@ -112,52 +103,30 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Formulaire d'inscription
   Widget _buildForm(ResponsiveHelper responsive) {
     return Form(
       key: _formKey,
       child: Column(
         children: [
-          // Prénom et Nom - En ligne sur tablette/desktop
           _buildNameFields(responsive),
-
           SizedBox(height: responsive.spacing(16)),
-
-          // Email
           _buildEmailField(responsive),
-
           SizedBox(height: responsive.spacing(16)),
-
-          // Mot de passe
           _buildPasswordField(responsive),
-
           SizedBox(height: responsive.spacing(16)),
-
-          // Confirmation mot de passe
           _buildConfirmPasswordField(responsive),
-
           SizedBox(height: responsive.spacing(24)),
-
-          // Conditions d'utilisation
           _buildTermsSection(responsive),
-
           SizedBox(height: responsive.spacing(24)),
-
-          // Bouton d'inscription
           _buildRegisterButton(responsive),
-
           SizedBox(height: responsive.spacing(24)),
-
-          // Lien vers connexion
           _buildLoginLink(responsive),
         ],
       ),
     );
   }
 
-  /// Champs Prénom et Nom - Responsive
   Widget _buildNameFields(ResponsiveHelper responsive) {
-    // Sur tablette et desktop, afficher côte à côte
     if (responsive.isTablet || responsive.isDesktop) {
       return Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,15 +150,13 @@ class _RegisterPageState extends State<RegisterPage> {
               hint: 'Dupont',
               icon: Icons.person_outline,
               responsive: responsive,
-              validator: (value) =>
-                  Validators.validateRequired(value, 'Le nom'),
+              validator: (value) => Validators.validateRequired(value, 'Le nom'),
             ),
           ),
         ],
       );
     }
 
-    // Sur mobile, afficher en colonne
     return Column(
       children: [
         _buildTextField(
@@ -213,7 +180,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Champ Email
   Widget _buildEmailField(ResponsiveHelper responsive) {
     return _buildTextField(
       controller: _emailController,
@@ -226,7 +192,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Champ Mot de passe
   Widget _buildPasswordField(ResponsiveHelper responsive) {
     return TextFormField(
       controller: _passwordController,
@@ -267,7 +232,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Champ Confirmation mot de passe
   Widget _buildConfirmPasswordField(ResponsiveHelper responsive) {
     return TextFormField(
       controller: _confirmPasswordController,
@@ -303,7 +267,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Section conditions d'utilisation
   Widget _buildTermsSection(ResponsiveHelper responsive) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,9 +304,7 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Liens vers CGU et politique de confidentialité
   Widget _buildTermsLinks(ResponsiveHelper responsive) {
-    // Sur mobile très petit, afficher en colonne
     if (responsive.screenWidth < 350) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -351,18 +312,17 @@ class _RegisterPageState extends State<RegisterPage> {
           _buildTermsButton(
             'Conditions d\'utilisation',
             responsive,
-            () => _showTermsDialog(),
+            _showTermsDialog,
           ),
           _buildTermsButton(
             'Politique de confidentialité',
             responsive,
-            () => _showPrivacyDialog(),
+            _showPrivacyDialog,
           ),
         ],
       );
     }
 
-    // Sinon en ligne
     return Wrap(
       spacing: responsive.spacing(8),
       runSpacing: responsive.spacing(4),
@@ -370,12 +330,12 @@ class _RegisterPageState extends State<RegisterPage> {
         _buildTermsButton(
           'Conditions d\'utilisation',
           responsive,
-          () => _showTermsDialog(),
+          _showTermsDialog,
         ),
         _buildTermsButton(
           'Politique de confidentialité',
           responsive,
-          () => _showPrivacyDialog(),
+          _showPrivacyDialog,
         ),
       ],
     );
@@ -433,7 +393,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Bouton d'inscription
   Widget _buildRegisterButton(ResponsiveHelper responsive) {
     return Obx(() {
       if (_authController.isLoading.value) {
@@ -474,7 +433,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
-  /// Lien vers connexion
   Widget _buildLoginLink(ResponsiveHelper responsive) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -502,7 +460,6 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  /// Affichage des erreurs
   Widget _buildErrorDisplay(ResponsiveHelper responsive) {
     return Obx(() {
       if (_authController.error.value.isNotEmpty) {
@@ -541,7 +498,6 @@ class _RegisterPageState extends State<RegisterPage> {
     });
   }
 
-  /// Widget réutilisable pour les champs texte
   Widget _buildTextField({
     required TextEditingController controller,
     required String label,
@@ -571,22 +527,30 @@ class _RegisterPageState extends State<RegisterPage> {
     );
   }
 
-  // === Fonctions de logique conservées à l'identique ===
-
   Future<void> _register() async {
     if (_formKey.currentState!.validate() && _acceptTerms) {
-      final success = await _authController.register(
+      final result = await _authController.register(
         email: _emailController.text.trim(),
         password: _passwordController.text,
         nom: _nomController.text.trim(),
         prenom: _prenomController.text.trim(),
       );
 
-      if (success) {
+      if (!mounted) return;
+
+      if (result.success && result.isAuthenticated) {
         Get.offAllNamed(AppRoutes.communitySelect);
         Get.snackbar(
           'Inscription réussie',
-          'Bienvenue ${_authController.user.value?.prenom} ! Votre compte a été créé avec succès.',
+          result.message,
+          backgroundColor: Colors.green,
+          colorText: Colors.white,
+        );
+      } else if (result.success) {
+        Get.offAllNamed(AppRoutes.login);
+        Get.snackbar(
+          'Compte créé',
+          result.message,
           backgroundColor: Colors.green,
           colorText: Colors.white,
         );
