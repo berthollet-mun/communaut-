@@ -115,6 +115,24 @@ class ApiService extends GetxService {
       );
     }
 
+    final rawBody = response.body.trim();
+    final looksLikeHtmlError =
+        rawBody.startsWith('<!DOCTYPE html') ||
+        rawBody.startsWith('<html') ||
+        rawBody.startsWith('<br') ||
+        rawBody.contains('Fatal error') ||
+        rawBody.contains('Deprecated</b>:');
+
+    if (looksLikeHtmlError) {
+      final backendHint = rawBody.contains('validateDate')
+          ? 'Erreur backend: validateDate() manquant dans l API (mise a jour tache).'
+          : 'Erreur backend PHP renvoyee en HTML.';
+      return ApiResponse.error(
+        backendHint,
+        code: 'BACKEND_PHP_ERROR',
+      );
+    }
+
     try {
       final dynamic decoded = json.decode(response.body);
 

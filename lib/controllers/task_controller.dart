@@ -38,6 +38,8 @@ class TaskController extends GetxController {
     return 'À faire';
   }
 
+  String normalizeStatus(String raw) => _normalizeStatus(raw);
+
   // ✅ Helper pour envoyer des notifications
   void _notify(
     String type,

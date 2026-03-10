@@ -149,13 +149,24 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
   }
 
   Widget _buildProjectCard(ProjectModel project, CommunityModel community) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     final progress = project.completion_percentage.clamp(0.0, 100.0).toDouble();
     final completedTasks = project.completed_tasks;
     final totalTasks = project.tasks_count;
     final remainingTasks = (totalTasks - completedTasks).clamp(0, totalTasks);
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      color: theme.cardColor,
+      elevation: isDark ? 0 : 2,
+      shadowColor: Colors.black.withOpacity(isDark ? 0.22 : 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.05),
+        ),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: () {
@@ -172,12 +183,12 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.1),
+                      color: colorScheme.primary.withOpacity(isDark ? 0.18 : 0.10),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.folder_outlined,
-                      color: Colors.blue,
+                      color: colorScheme.primary,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -195,7 +206,9 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                         if (project.description.isNotEmpty)
                           Text(
                             project.description,
-                            style: AppTheme.bodyText2,
+                            style: AppTheme.bodyText2.copyWith(
+                              color: colorScheme.onSurface.withOpacity(0.72),
+                            ),
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                           ),
@@ -245,16 +258,19 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildStat(
+                    context,
                     Icons.task_outlined,
                     '${project.tasks_count}',
                     'Tâches',
                   ),
                   _buildStat(
+                    context,
                     Icons.check_circle_outline,
                     '${progress.toStringAsFixed(0)}%',
                     'Terminé',
                   ),
                   _buildStat(
+                    context,
                     Icons.calendar_today,
                     _formatDate(project.created_at),
                     'Créé',
@@ -267,9 +283,11 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 decoration: BoxDecoration(
-                  color: Colors.grey[50],
+                  color: colorScheme.onSurface.withOpacity(isDark ? 0.05 : 0.03),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey[200]!),
+                  border: Border.all(
+                    color: colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.08),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -297,7 +315,9 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: progress / 100,
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: colorScheme.onSurface.withOpacity(
+                          isDark ? 0.12 : 0.14,
+                        ),
                         color: _getProgressColor(progress),
                         minHeight: 8,
                       ),
@@ -314,6 +334,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                       children: [
                         Expanded(
                           child: _buildMiniTaskStat(
+                            context: context,
                             icon: Icons.pending_actions_outlined,
                             label: 'À faire',
                             value: '$remainingTasks',
@@ -323,6 +344,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _buildMiniTaskStat(
+                            context: context,
                             icon: Icons.check_circle_outline,
                             label: 'Achevées',
                             value: '$completedTasks',
@@ -341,33 +363,51 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     );
   }
 
-  Widget _buildStat(IconData icon, String value, String label) {
+  Widget _buildStat(
+    BuildContext context,
+    IconData icon,
+    String value,
+    String label,
+  ) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         Row(
           children: [
-            Icon(icon, size: 16, color: Colors.grey[600]),
+            Icon(
+              icon,
+              size: 16,
+              color: colorScheme.onSurface.withOpacity(0.66),
+            ),
             const SizedBox(width: 4),
             Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
           ],
         ),
-        Text(label, style: AppTheme.bodyText2.copyWith(fontSize: 11)),
+        Text(
+          label,
+          style: AppTheme.bodyText2.copyWith(
+            fontSize: 11,
+            color: colorScheme.onSurface.withOpacity(0.66),
+          ),
+        ),
       ],
     );
   }
 
   Widget _buildMiniTaskStat({
+    required BuildContext context,
     required IconData icon,
     required String label,
     required String value,
     required Color color,
   }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withOpacity(isDark ? 0.16 : 0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.28)),
+        border: Border.all(color: color.withOpacity(isDark ? 0.36 : 0.28)),
       ),
       child: Row(
         children: [

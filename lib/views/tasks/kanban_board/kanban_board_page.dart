@@ -134,7 +134,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     task.titre,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -169,7 +172,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 const Divider(),
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+                  title: const Text(
+                    'Supprimer',
+                    style: TextStyle(color: Colors.red),
+                  ),
                   onTap: () {
                     Get.back();
                     _confirmDelete(task);
@@ -311,7 +317,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   Widget _buildStatusTile(TaskModel task, String status, Color color) {
-    final isCurrent = task.status == status;
+    final isCurrent =
+        _taskController.normalizeStatus(task.status) ==
+        _taskController.normalizeStatus(status);
     return ListTile(
       leading: Icon(
         isCurrent ? Icons.check_circle : Icons.circle_outlined,
@@ -322,26 +330,53 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           ? null
           : () async {
               Get.back();
-              final ok = await _taskController.updateTaskStatus(
-                communityId: _communityId,
-                projectId: _projectId,
-                taskId: task.id,
-                status: status,
-              );
-              if (ok) {
-                await _load();
-              } else {
-                Get.snackbar(
-                  'Erreur',
-                  _taskController.error.value.isNotEmpty 
-                      ? _taskController.error.value 
-                      : 'Impossible de changer le statut',
-                  backgroundColor: Colors.red,
-                  colorText: Colors.white,
-                );
-              }
+              await _changeTaskStatus(task, status);
             },
     );
+  }
+
+  Future<void> _changeTaskStatus(TaskModel task, String status) async {
+    if (!_canManageTasks) {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas modifier le statut de cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
+    final ok = await _taskController.updateTaskStatus(
+      communityId: _communityId,
+      projectId: _projectId,
+      taskId: task.id,
+      status: status,
+    );
+    if (ok) {
+      // Do not immediately reload from server: the local Kanban state has
+      // already been updated and an immediate fetch can reintroduce stale data.
+      Future.delayed(const Duration(milliseconds: 900), () {
+        _taskController.loadKanbanTasks(
+          communityId: _communityId,
+          projectId: _projectId,
+        );
+      });
+      Get.snackbar(
+        'Succès',
+        'Statut changé vers "$status".',
+        backgroundColor: Colors.green,
+        colorText: Colors.white,
+      );
+    } else {
+      Get.snackbar(
+        'Erreur',
+        _taskController.error.value.isNotEmpty
+            ? _taskController.error.value
+            : 'Impossible de changer le statut',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
+    }
   }
 
   void _confirmDelete(TaskModel task) {
@@ -369,25 +404,25 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                 projectId: _projectId,
                 taskId: task.id,
               );
-                if (ok) {
-                  Get.snackbar(
-                    'Succès',
-                    'Tâche supprimée',
-                    backgroundColor: Colors.green,
-                    colorText: Colors.white,
-                  );
-                  await _load();
-                } else {
-                  Get.snackbar(
-                    'Erreur',
-                    _taskController.error.value.isNotEmpty 
-                        ? _taskController.error.value 
-                        : 'Impossible de supprimer la tâche',
-                    backgroundColor: Colors.red,
-                    colorText: Colors.white,
-                    duration: const Duration(seconds: 4),
-                  );
-                }
+              if (ok) {
+                Get.snackbar(
+                  'Succès',
+                  'Tâche supprimée',
+                  backgroundColor: Colors.green,
+                  colorText: Colors.white,
+                );
+                await _load();
+              } else {
+                Get.snackbar(
+                  'Erreur',
+                  _taskController.error.value.isNotEmpty
+                      ? _taskController.error.value
+                      : 'Impossible de supprimer la tâche',
+                  backgroundColor: Colors.red,
+                  colorText: Colors.white,
+                  duration: const Duration(seconds: 4),
+                );
+              }
             },
             style: TextButton.styleFrom(foregroundColor: Colors.red),
             child: const Text('Supprimer'),
@@ -422,7 +457,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           return const LoadingWidget(message: 'Chargement des tâches...');
         }
 
-        if (_taskController.error.value.isNotEmpty) {
+        if (_taskController.error.value.isNotEmpty &&
+            _taskController.kanban.value == null) {
           return Center(
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -451,8 +487,11 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           return const Center(child: Text('Aucune donnée'));
         }
         final todoTasks = k.todo.where((t) => !t.isDeleted).toList();
-        final inProgressTasks = k.inProgress.where((t) => !t.isDeleted).toList();
+        final inProgressTasks = k.inProgress
+            .where((t) => !t.isDeleted)
+            .toList();
         final doneTasks = k.done.where((t) => !t.isDeleted).toList();
+        final isDark = Theme.of(context).brightness == Brightness.dark;
 
         return RefreshIndicator(
           onRefresh: _load,
@@ -467,34 +506,42 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   _KanbanColumn(
                     title: 'À faire',
                     count: todoTasks.length,
-                     headerColor: Colors.red.withOpacity(0.12),
+                    headerColor: Colors.red.withOpacity(isDark ? 0.20 : 0.12),
                     titleColor: Colors.red,
                     tasks: todoTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
+                    canManageTasks: _canManageTasks,
+                    onChangeStatus: _changeTaskStatus,
                   ),
                   const SizedBox(width: 12),
                   _KanbanColumn(
                     title: 'En cours',
                     count: inProgressTasks.length,
-                    headerColor: Colors.orange.withOpacity(0.12),
+                    headerColor: Colors.orange.withOpacity(
+                      isDark ? 0.20 : 0.12,
+                    ),
                     titleColor: Colors.orange,
                     tasks: inProgressTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
+                    canManageTasks: _canManageTasks,
+                    onChangeStatus: _changeTaskStatus,
                   ),
                   const SizedBox(width: 12),
                   _KanbanColumn(
                     title: 'Terminé',
                     count: doneTasks.length,
-                    headerColor: Colors.green.withOpacity(0.12),
+                    headerColor: Colors.green.withOpacity(isDark ? 0.20 : 0.12),
                     titleColor: Colors.green,
                     tasks: doneTasks,
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
+                    canManageTasks: _canManageTasks,
+                    onChangeStatus: _changeTaskStatus,
                   ),
                 ],
               ),
@@ -517,6 +564,8 @@ class _KanbanColumn extends StatelessWidget {
   // ✅ ajouté uniquement pour le bouton Commentaires
   final Future<void> Function(TaskModel task) onOpenComments;
   final void Function(TaskModel task) onLongPress;
+  final bool canManageTasks;
+  final Future<void> Function(TaskModel task, String status) onChangeStatus;
 
   const _KanbanColumn({
     required this.title,
@@ -527,18 +576,27 @@ class _KanbanColumn extends StatelessWidget {
     required this.onOpen,
     required this.onOpenComments,
     required this.onLongPress,
+    required this.canManageTasks,
+    required this.onChangeStatus,
   });
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+
     return Container(
       width: 320,
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
+        color: theme.cardColor,
         borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.05),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withOpacity(isDark ? 0.18 : 0.04),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -572,7 +630,7 @@ class _KanbanColumn extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: titleColor.withOpacity(0.14),
+                    color: titleColor.withOpacity(isDark ? 0.20 : 0.14),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
@@ -604,6 +662,9 @@ class _KanbanColumn extends StatelessWidget {
                         onTap: () => onOpen(task),
                         onLongPress: () => onLongPress(task),
                         onCommentsTap: () => onOpenComments(task),
+                        canManageTasks: canManageTasks,
+                        onChangeStatus: (status) =>
+                            onChangeStatus(task, status),
                       );
                     },
                   ),
@@ -621,18 +682,32 @@ class _TaskCard extends StatelessWidget {
   // ✅ ajouté uniquement pour le bouton Commentaires
   final VoidCallback onCommentsTap;
   final VoidCallback onLongPress;
+  final bool canManageTasks;
+  final Future<void> Function(String status) onChangeStatus;
 
   const _TaskCard({
     required this.task,
     required this.onTap,
     required this.onCommentsTap,
     required this.onLongPress,
+    required this.canManageTasks,
+    required this.onChangeStatus,
   });
 
   @override
   Widget build(BuildContext context) {
     final due = task.due_date;
     final overdue = task.isOverdue;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final taskSurface = isDark
+        ? colorScheme.onSurface.withOpacity(0.04)
+        : theme.scaffoldBackgroundColor;
+    final metaColor = colorScheme.onSurface.withOpacity(isDark ? 0.78 : 0.70);
+    final metaBackground = colorScheme.onSurface.withOpacity(
+      isDark ? 0.08 : 0.06,
+    );
 
     return InkWell(
       onTap: onTap,
@@ -642,9 +717,11 @@ class _TaskCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Theme.of(context).scaffoldBackgroundColor,
+          color: taskSurface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.black.withOpacity(0.06)),
+          border: Border.all(
+            color: colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.06),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -656,18 +733,70 @@ class _TaskCard extends StatelessWidget {
                     task.titre,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
                 if (task.isAssigned)
                   CircleAvatar(
                     radius: 12,
-                    backgroundColor: Colors.blue.withOpacity(0.2),
+                    backgroundColor: colorScheme.primary.withOpacity(
+                      isDark ? 0.24 : 0.18,
+                    ),
                     child: Text(
-                      (task.assigned_prenom ?? 'U').substring(0, 1).toUpperCase(),
-                      style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                      (task.assigned_prenom ?? 'U')
+                          .substring(0, 1)
+                          .toUpperCase(),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.primary,
+                      ),
                     ),
                   ),
+                PopupMenuButton<String>(
+                  tooltip: 'Changer le statut',
+                  onSelected: (status) => onChangeStatus(status),
+                  enabled: canManageTasks,
+                  itemBuilder: (context) => const [
+                    PopupMenuItem(value: 'À faire', child: Text('À faire')),
+                    PopupMenuItem(value: 'En cours', child: Text('En cours')),
+                    PopupMenuItem(value: 'Terminé', child: Text('Terminé')),
+                  ],
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _statusColor(
+                        task.status,
+                      ).withOpacity(isDark ? 0.18 : 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          task.status,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: _statusColor(task.status),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.keyboard_arrow_down,
+                          size: 14,
+                          color: _statusColor(task.status),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
@@ -676,7 +805,7 @@ class _TaskCard extends StatelessWidget {
                 task.description,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: Colors.grey[700]),
+                style: TextStyle(color: metaColor),
               ),
             const SizedBox(height: 10),
 
@@ -692,7 +821,7 @@ class _TaskCard extends StatelessWidget {
                       vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.grey.withOpacity(0.10),
+                      color: metaBackground,
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: Row(
@@ -701,14 +830,14 @@ class _TaskCard extends StatelessWidget {
                         Icon(
                           Icons.chat_bubble_outline,
                           size: 16,
-                          color: Colors.grey[800],
+                          color: metaColor,
                         ),
                         const SizedBox(width: 6),
                         Text(
                           '${task.comments_count > 0 ? task.comments_count : ""}',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: Colors.grey[900],
+                            color: metaColor,
                             fontSize: 12,
                           ),
                         ),
@@ -717,7 +846,7 @@ class _TaskCard extends StatelessWidget {
                           'Commentaires',
                           style: TextStyle(
                             fontWeight: FontWeight.w800,
-                            color: Colors.grey[900],
+                            color: metaColor,
                             fontSize: 12,
                           ),
                         ),
@@ -768,4 +897,18 @@ class _TaskCard extends StatelessWidget {
       ),
     );
   }
+
+  Color _statusColor(String status) {
+    switch (taskStatus(status)) {
+      case 'En cours':
+        return Colors.orange;
+      case 'Terminé':
+        return Colors.green;
+      default:
+        return Colors.red;
+    }
+  }
+
+  String taskStatus(String status) =>
+      Get.find<TaskController>().normalizeStatus(status);
 }
