@@ -1,3 +1,5 @@
+import 'package:community/core/utils/date_time_helper.dart';
+
 class ProjectModel {
   final int id;
   final String nom;
@@ -31,8 +33,15 @@ class ProjectModel {
       nom: json['nom'] ?? '',
       description: json['description'] ?? '',
       created_by: _parseInt(json['created_by'], defaultValue: 0),
-      created_at: _parseDate(json['created_at']) ?? DateTime.now(),
-      archived_at: _parseDate(json['archived_at']),
+      created_at: DateTimeHelper.parseApiDateTime(
+            json['created_at'],
+            assumeUtcForNaiveDateTimes: true,
+          ) ??
+          DateTime.now(),
+      archived_at: DateTimeHelper.parseApiDateTime(
+        json['archived_at'],
+        assumeUtcForNaiveDateTimes: true,
+      ),
       creator_nom: json['creator_nom'],
       creator_prenom: json['creator_prenom'],
       tasks_count: _parseInt(json['tasks_count'] ?? json['total_tasks'] ?? json['tasksCount'], defaultValue: 0),
@@ -55,19 +64,6 @@ class ProjectModel {
     if (value is int) return value.toDouble();
     if (value is String) return double.tryParse(value) ?? defaultValue;
     return defaultValue;
-  }
-
-  static DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
   }
 
   Map<String, dynamic> toJson() {

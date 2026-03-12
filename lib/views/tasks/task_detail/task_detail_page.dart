@@ -432,7 +432,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     if (role == 'MEMBRE') {
       Get.snackbar(
         'Accès refusé',
-        'Vous ne pouvez pas supprimer cette tâche.',
+        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );

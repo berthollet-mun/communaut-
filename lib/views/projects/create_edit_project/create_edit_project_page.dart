@@ -8,6 +8,7 @@ import 'package:community/app/themes/app_theme.dart';
 import 'package:community/core/utils/validators.dart';
 import 'package:community/data/models/project_model.dart';
 import 'package:community/views/shared/widgets/form_field.dart';
+import 'package:community/views/shared/widgets/loading_widget.dart';
 
 class CreateEditProjectPage extends StatefulWidget {
   const CreateEditProjectPage({super.key});
@@ -171,7 +172,9 @@ class _CreateEditProjectPageState extends State<CreateEditProjectPage> {
               // Bouton
               Obx(() {
                 if (_projectController.isLoading.value) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const LoadingWidget(
+                    message: 'Enregistrement du projet...',
+                  );
                 }
                 return PrimaryButton(
                   text: _isEditMode ? 'Mettre à jour' : 'Créer le projet',

@@ -1142,7 +1142,7 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
     if (community.role != 'ADMIN') {
       Get.snackbar(
         'Accès refusé',
-        'Seul un administrateur peut supprimer la communauté.',
+        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette communauté. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.red,
         colorText: Colors.white,
       );
@@ -1338,7 +1338,7 @@ class _CommunityDashboardPageState extends State<CommunityDashboardPage> {
   void _showSettings(CommunityModel community) {
     Get.snackbar(
       'Paramètres',
-      'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+      'Cette fonctionnalité arrive bientôt ! Elle sera activée lors de notre prochaine mise à jour pour enrichir votre expérience.',
       backgroundColor: Colors.blue,
       colorText: Colors.white,
     );

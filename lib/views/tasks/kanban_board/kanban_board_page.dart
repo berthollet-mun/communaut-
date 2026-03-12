@@ -112,7 +112,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     if (!_canManageTasks) {
       Get.snackbar(
         'Accès refusé',
-        'Vous ne pouvez pas modifier ou supprimer cette tâche.',
+        'Vous n\'avez pas les autorisations nécessaires pour modifier ou supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -339,7 +339,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     if (!_canManageTasks) {
       Get.snackbar(
         'Accès refusé',
-        'Vous ne pouvez pas modifier le statut de cette tâche.',
+        'Vous n\'avez pas les autorisations nécessaires pour modifier le statut de cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -383,7 +383,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     if (!_canManageTasks) {
       Get.snackbar(
         'Accès refusé',
-        'Vous ne pouvez pas supprimer cette tâche.',
+        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );

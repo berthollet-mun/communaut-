@@ -764,7 +764,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () {
               Get.snackbar(
                 'Notifications',
-                'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+                'Cette fonctionnalité arrive bientôt ! Elle sera activée lors de notre prochaine mise à jour pour enrichir votre expérience.',
                 backgroundColor: Colors.blue,
                 colorText: Colors.white,
               );
@@ -791,7 +791,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () {
               Get.snackbar(
                 'Langue',
-                'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+                'Cette fonctionnalité arrive bientôt ! Elle sera activée lors de notre prochaine mise à jour pour enrichir votre expérience.',
                 backgroundColor: Colors.blue,
                 colorText: Colors.white,
               );
@@ -828,7 +828,7 @@ class _ProfilePageState extends State<ProfilePage> {
             onTap: () {
               Get.snackbar(
                 'Centre d\'aide',
-                'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+                'Cette fonctionnalité arrive bientôt ! Elle sera activée lors de notre prochaine mise à jour pour enrichir votre expérience.',
                 backgroundColor: Colors.blue,
                 colorText: Colors.white,
               );

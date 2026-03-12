@@ -300,11 +300,22 @@ class _MembersListPageState extends State<MembersListPage> {
     CommunityModel community,
     String newRole,
   ) async {
+    // Petit écran de chargement pendant la mise à jour du rôle
+    Get.dialog(
+      const Center(child: CircularProgressIndicator()),
+      barrierDismissible: false,
+    );
+
     final success = await _communityController.updateMemberRole(
       communityId: community.community_id,
       memberId: member.id,
       role: newRole,
     );
+
+    // Ferme le loader une fois l'appel terminé
+    if (Get.isDialogOpen == true) {
+      Get.back();
+    }
 
     if (success) {
       await _loadMembers();

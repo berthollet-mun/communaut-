@@ -1,3 +1,5 @@
+import 'package:community/core/utils/date_time_helper.dart';
+
 class TaskModel {
   final int id;
   final String titre;
@@ -46,10 +48,20 @@ class TaskModel {
       assigned_email: json['assigned_email'],
       creator_nom: json['creator_nom'],
       creator_prenom: json['creator_prenom'],
-      due_date: _parseDate(json['due_date']),
+      due_date: DateTimeHelper.parseApiDateTime(
+        json['due_date'],
+        assumeUtcForNaiveDateTimes: true,
+      ),
       comments_count: _parseInt(json['comments_count'], defaultValue: 0),
-      created_at: _parseDate(json['created_at']) ?? DateTime.now(),
-      deleted_at: _parseDate(json['deleted_at']),
+      created_at: DateTimeHelper.parseApiDateTime(
+            json['created_at'],
+            assumeUtcForNaiveDateTimes: true,
+          ) ??
+          DateTime.now(),
+      deleted_at: DateTimeHelper.parseApiDateTime(
+        json['deleted_at'],
+        assumeUtcForNaiveDateTimes: true,
+      ),
     );
   }
 
@@ -59,19 +71,6 @@ class TaskModel {
     if (value is double) return value.toInt();
     if (value is String) return int.tryParse(value) ?? defaultValue;
     return defaultValue;
-  }
-
-  static DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
   }
 
   Map<String, dynamic> toJson() {

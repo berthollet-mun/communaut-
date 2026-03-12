@@ -1,3 +1,5 @@
+import 'package:community/core/utils/date_time_helper.dart';
+
 class CommentModel {
   final int id;
   final String content;
@@ -24,13 +26,16 @@ class CommentModel {
     return def;
   }
 
-  static DateTime _parseDate(dynamic v) {
-    if (v == null) return DateTime.now();
-    if (v is DateTime) return v;
-    if (v is String) {
-      return DateTime.tryParse(v) ?? DateTime.now();
-    }
-    return DateTime.now();
+  static DateTime _parseRequiredDate(dynamic v) {
+    return DateTimeHelper.parseApiDateTime(
+          v,
+          assumeUtcForNaiveDateTimes: true,
+        ) ??
+        DateTime.now();
+  }
+
+  static DateTime? _parseOptionalDate(dynamic v) {
+    return DateTimeHelper.parseApiDateTime(v, assumeUtcForNaiveDateTimes: true);
   }
 
   factory CommentModel.fromJson(Map<String, dynamic> json) {
@@ -40,10 +45,8 @@ class CommentModel {
       nom: json['nom']?.toString() ?? '',
       prenom: json['prenom']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      created_at: _parseDate(json['created_at']),
-      updated_at: json['updated_at'] != null
-          ? DateTime.tryParse('${json['updated_at']}')
-          : null,
+      created_at: _parseRequiredDate(json['created_at']),
+      updated_at: _parseOptionalDate(json['updated_at']),
     );
   }
 

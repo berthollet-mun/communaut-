@@ -1,3 +1,5 @@
+import 'package:community/core/utils/date_time_helper.dart';
+
 class NotificationModel {
   final int id;
   final String type;
@@ -28,9 +30,11 @@ class NotificationModel {
       is_read: json['is_read'] == true || json['is_read'] == 1,
       related_id: json['related_id'],
       related_type: json['related_type']?.toString(),
-      created_at: json['created_at'] != null
-          ? DateTime.parse(json['created_at'].toString())
-          : DateTime.now(),
+      created_at: DateTimeHelper.parseApiDateTime(
+            json['created_at'],
+            assumeUtcForNaiveDateTimes: true,
+          ) ??
+          DateTime.now(),
     );
   }
 

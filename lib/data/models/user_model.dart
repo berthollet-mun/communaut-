@@ -1,4 +1,7 @@
 // user_model.dart
+
+import 'package:community/core/utils/date_time_helper.dart';
+
 class UserModel {
   final int user_id;
   final String email;
@@ -41,9 +44,11 @@ class UserModel {
       password: json['password']?.toString(),
       nom: json['nom']?.toString() ?? '',
       prenom: json['prenom']?.toString() ?? '',
-      created_at: json['created_at'] != null
-          ? DateTime.tryParse(json['created_at'].toString()) ?? DateTime.now()
-          : DateTime.now(),
+      created_at: DateTimeHelper.parseApiDateTime(
+            json['created_at'],
+            assumeUtcForNaiveDateTimes: true,
+          ) ??
+          DateTime.now(),
       token: json['token']?.toString(),
     );
   }

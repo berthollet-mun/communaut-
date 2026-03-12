@@ -1,3 +1,5 @@
+import 'package:community/core/utils/date_time_helper.dart';
+
 class ActivityModel {
   final int id;
   final String activity_type;
@@ -25,7 +27,11 @@ class ActivityModel {
       nom: json['nom']?.toString() ?? '',
       prenom: json['prenom']?.toString() ?? '',
       email: json['email']?.toString() ?? '',
-      created_at: _parseDate(json['created_at']) ?? DateTime.now(),
+      created_at: DateTimeHelper.parseApiDateTime(
+            json['created_at'],
+            assumeUtcForNaiveDateTimes: true,
+          ) ??
+          DateTime.now(),
     );
   }
 
@@ -35,19 +41,6 @@ class ActivityModel {
     if (value is double) return value.toInt();
     if (value is String) return int.tryParse(value) ?? defaultValue;
     return defaultValue;
-  }
-
-  static DateTime? _parseDate(dynamic value) {
-    if (value == null) return null;
-    if (value is DateTime) return value;
-    if (value is String) {
-      try {
-        return DateTime.parse(value);
-      } catch (_) {
-        return null;
-      }
-    }
-    return null;
   }
 
   Map<String, dynamic> toJson() {

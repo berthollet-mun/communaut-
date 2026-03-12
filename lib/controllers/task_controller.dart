@@ -228,27 +228,31 @@ class TaskController extends GetxController {
       );
 
       if (response.success) {
-        final updated = await _taskService.getTaskDetails(
-          communityId: communityId,
-          projectId: projectId,
-          taskId: taskId,
-        );
-        final serverStatus = updated != null
-            ? _normalizeStatus(updated.status)
-            : null;
-
-        if (serverStatus != null && serverStatus != normalizedStatus) {
-          error.value =
-              'Le serveur n\'a pas appliqué le statut demandé (actuel: $serverStatus).';
-          await loadKanbanTasks(communityId: communityId, projectId: projectId);
-          return false;
+        // On tente de récupérer la tâche mise à jour côté serveur,
+        // mais on ne bloque plus l'utilisateur si le backend répond "succès"
+        // avec un statut légèrement différent (par ex. normalisation côté API).
+        TaskModel? updated;
+        String? serverStatus;
+        try {
+          updated = await _taskService.getTaskDetails(
+            communityId: communityId,
+            projectId: projectId,
+            taskId: taskId,
+          );
+          if (updated != null) {
+            serverStatus = _normalizeStatus(updated.status);
+          }
+        } catch (_) {
+          // En cas d'erreur réseau secondaire, on ne bloque pas le succès principal.
         }
 
-        _updateTaskStatusInKanban(taskId, normalizedStatus);
+        final finalStatus = serverStatus ?? normalizedStatus;
+
+        _updateTaskStatusInKanban(taskId, finalStatus);
 
         if (currentTask.value?.id == taskId) {
-          currentTask.value = updated?.copyWith(status: normalizedStatus) ??
-              currentTask.value?.copyWith(status: normalizedStatus);
+          currentTask.value = (updated ?? currentTask.value)
+              ?.copyWith(status: finalStatus);
         }
 
         // ✅ NOTIFICATION : Statut changé

@@ -10,6 +10,7 @@ import 'package:community/core/utils/validators.dart';
 import 'package:community/data/models/member_model.dart';
 import 'package:community/data/models/task_model.dart';
 import 'package:community/views/shared/widgets/form_field.dart';
+import 'package:community/views/shared/widgets/loading_widget.dart';
 
 class CreateEditTaskPage extends StatefulWidget {
   const CreateEditTaskPage({super.key});
@@ -213,10 +214,33 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         ? '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}'
         : null;
     final currentUserId = _authController.user.value?.user_id;
-    final hasInvalidAssignee = _assignedTo != null &&
-        (_assignedTo!.role.toUpperCase() == 'ADMIN' ||
-            (currentUserId != null && _assignedTo!.id == currentUserId));
-    final assignedToId = hasInvalidAssignee ? null : _assignedTo?.id;
+
+    // Logique d'assignation :
+    // - En création, si l'utilisateur est ADMIN et qu'il est seul dans la communauté
+    //   (aucun autre membre assignable), la tâche lui est assignée par défaut.
+    // - Dès qu'il y a d'autres membres, les tâches peuvent être assignées à ces membres,
+    //   mais pas à l'admin lui‑même.
+    bool _assignedIsInvalid() {
+      if (_assignedTo == null) return false;
+      final isAdminAssignee = _assignedTo!.role.toUpperCase() == 'ADMIN';
+      final isCurrentUser =
+          currentUserId != null && _assignedTo!.id == currentUserId;
+      return isAdminAssignee || isCurrentUser;
+    }
+
+    int? assignedToId;
+
+    if (!_isEditMode &&
+        community.role == 'ADMIN' &&
+        _members.isEmpty &&
+        currentUserId != null) {
+      // Cas 1 : création par un admin seul dans la communauté → assigné à l'admin.
+      assignedToId = currentUserId;
+    } else {
+      // Cas 2 : édition ou communauté avec d'autres membres → on respecte la sélection,
+      // tout en empêchant l’assignation à l’admin lui‑même.
+      assignedToId = _assignedIsInvalid() ? null : _assignedTo?.id;
+    }
 
     if (_isEditMode && _currentTask != null) {
       // MODE ÉDITION
@@ -294,7 +318,9 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         ],
       ),
       body: _isLoadingMembers
-          ? const Center(child: CircularProgressIndicator())
+          ? const LoadingWidget(
+              message: 'Chargement des membres...',
+            )
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -392,9 +418,11 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     // Bouton
                     Obx(() {
                       if (_taskController.isLoading.value) {
-                        return const Center(child: CircularProgressIndicator());
+                        return const LoadingWidget(
+                          message: 'Enregistrement de la tâche...',
+                        );
                       }
-      return PrimaryButton(
+                      return PrimaryButton(
                         text: _isEditMode ? 'Mettre à jour' : 'Créer',
                         onPressed: _saveTask,
                         fullWidth: true,
@@ -431,7 +459,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
     if (role == 'MEMBRE') {
       Get.snackbar(
         'Accès refusé',
-        'Vous ne pouvez pas supprimer cette tâche.',
+        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );

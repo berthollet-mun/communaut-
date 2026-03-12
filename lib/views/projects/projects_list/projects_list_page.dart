@@ -8,6 +8,7 @@ import 'package:community/data/models/community_model.dart';
 import 'package:community/data/models/project_model.dart';
 import 'package:community/core/utils/responsive_helper.dart';
 import 'package:community/core/utils/widgets/responsive_builder.dart';
+import 'package:community/core/utils/date_time_helper.dart';
 import 'package:community/views/shared/widgets/empty_state.dart';
 import 'package:community/views/shared/widgets/loading_widget.dart';
 
@@ -483,10 +484,6 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
   }
 
   String _formatDate(DateTime date) {
-    final diff = DateTime.now().difference(date).inDays;
-    if (diff == 0) return "Aujourd'hui";
-    if (diff == 1) return 'Hier';
-    if (diff < 7) return 'Il y a $diff jours';
-    return '${date.day}/${date.month}';
+    return DateTimeHelper.formatRelativeDateTime(date);
   }
 }

@@ -6,7 +6,9 @@ import 'package:community/app/routes/app_routes.dart';
 import 'package:community/controllers/comment_controller.dart';
 import 'package:community/controllers/auth_controller.dart';
 import 'package:community/controllers/task_controller.dart';
+import 'package:community/core/utils/date_time_helper.dart';
 import 'package:community/data/models/comment_model.dart';
+import 'package:community/views/shared/widgets/loading_widget.dart';
 
 /// Commentaire local temporaire (optimistic UI)
 class _LocalComment {
@@ -123,9 +125,9 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
     try {
       if (Get.isRegistered<TaskController>()) {
         final tc = Get.find<TaskController>();
-        
+
         // Refresh detail if available (optional based on controller methods)
-        // await tc.loadTaskDetails(...); 
+        // await tc.loadTaskDetails(...);
 
         // Refresh kanban/lists
         await tc.loadKanbanTasks(
@@ -143,7 +145,7 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
     if (content.isEmpty || _isSending) return;
 
     var user = _authController.user.value;
-    
+
     // ✅ Si user est null (cache GetX perdu ?), on tente un refresh rapide
     if (user == null) {
       await _authController.loadProfile();
@@ -381,7 +383,9 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
               if (_commentController.isLoading.value &&
                   serverComments.isEmpty &&
                   _pending.isEmpty) {
-                return const Center(child: CircularProgressIndicator());
+                return const LoadingWidget(
+                  message: 'Chargement des commentaires...',
+                );
               }
 
               if (_commentController.error.value.isNotEmpty &&
@@ -414,7 +418,7 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
                     // If serverComments are newest first, and pending are newest first:
                     // We want: [Oldest Server ... Newest Server, Newest Pending]
                     // With reverse:true, index 0 is at the bottom.
-                    
+
                     if (index < _pending.length) {
                       // Recent pending at bottom
                       return _buildLocalCommentCard(_pending[index]);
@@ -780,14 +784,6 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inSeconds < 60) return 'À l\'instant';
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
-    if (diff.inDays == 1) return 'Hier';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays} jours';
-    return '${date.day}/${date.month}/${date.year}';
+    return DateTimeHelper.formatRelativeDateTime(date);
   }
 }

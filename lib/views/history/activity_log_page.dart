@@ -2,6 +2,7 @@ import 'package:community/app/themes/app_theme.dart';
 import 'package:community/controllers/activity_controller.dart';
 import 'package:community/controllers/community_controller.dart';
 import 'package:community/data/models/activity_model.dart';
+import 'package:community/core/utils/date_time_helper.dart';
 import 'package:community/core/utils/widgets/responsive_builder.dart';
 import 'package:community/views/shared/widgets/empty_state.dart';
 import 'package:community/views/shared/widgets/loading_widget.dart';
@@ -118,7 +119,7 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
                   Get.back();
                   Get.snackbar(
                     'Filtres appliqués',
-                    'Nous attendons les informations du développeur backend pour activer cette fonctionnalité.',
+                    'Cette fonctionnalité arrive bientôt ! Elle sera activée lors de notre prochaine mise à jour pour enrichir votre expérience.',
                     backgroundColor: Colors.blue,
                     colorText: Colors.white,
                   );
@@ -311,21 +312,6 @@ class _ActivityLogPageState extends State<ActivityLogPage> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inSeconds < 60) {
-      return 'À l\'instant';
-    } else if (difference.inMinutes < 60) {
-      return 'Il y a ${difference.inMinutes} min';
-    } else if (difference.inHours < 24) {
-      return 'Il y a ${difference.inHours} h';
-    } else if (difference.inDays == 1) {
-      return 'Hier';
-    } else if (difference.inDays < 7) {
-      return 'Il y a ${difference.inDays} jours';
-    } else {
-      return '${date.day}/${date.month}/${date.year}';
-    }
+    return DateTimeHelper.formatRelativeDateTime(date);
   }
 }

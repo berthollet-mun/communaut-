@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:community/controllers/comment_controller.dart';
 import 'package:community/controllers/auth_controller.dart';
+import 'package:community/core/utils/date_time_helper.dart';
 import 'package:community/data/models/comment_model.dart';
 
 /// Commentaire local temporaire (optimistic UI)
@@ -796,14 +797,6 @@ class _TaskCommentsPageState extends State<TaskCommentsPage> {
   }
 
   String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final diff = now.difference(date);
-
-    if (diff.inSeconds < 60) return 'À l\'instant';
-    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes} min';
-    if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
-    if (diff.inDays == 1) return 'Hier';
-    if (diff.inDays < 7) return 'Il y a ${diff.inDays} jours';
-    return '${date.day}/${date.month}/${date.year}';
+    return DateTimeHelper.formatRelativeDateTime(date);
   }
 }
