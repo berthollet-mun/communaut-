@@ -25,10 +25,15 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   late int _communityId;
   late int _projectId;
 
-  bool get _canManageTasks {
-    final role = _communityController.currentCommunity.value?.role ?? 'MEMBRE';
-    return role == 'ADMIN' || role == 'RESPONSABLE';
-  }
+  String get _role =>
+      (_communityController.currentCommunity.value?.role ?? 'MEMBRE')
+          .toUpperCase();
+
+  bool get _canCreateOrEditTasks => _role == 'ADMIN' || _role == 'RESPONSABLE';
+
+  bool get _canDeleteTasks => _role == 'ADMIN';
+
+  bool get _canChangeTaskStatus => true;
 
   @override
   void initState() {
@@ -48,13 +53,12 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   Future<void> _load() async {
-    // Si IDs invalides, tenter de les récupérer à nouveau des controllers
     if (_communityId <= 0 || _projectId <= 0) {
       _updateIds();
     }
 
     if (_communityId <= 0 || _projectId <= 0) {
-      print('❌ Kanban: IDs invalides (C:$_communityId, P:$_projectId)');
+      debugPrint('❌ Kanban: IDs invalides (C:$_communityId, P:$_projectId)');
       return;
     }
 
@@ -65,10 +69,8 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   Future<void> _openTask(TaskModel task) async {
-    // important : set current task
     _taskController.setCurrentTask(task);
 
-    // ouvre détails
     await Get.toNamed(
       AppRoutes.taskDetail,
       arguments: {
@@ -78,17 +80,25 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       },
     );
 
-    // au retour, refresh
     await _load();
   }
 
   Future<void> _editTask(TaskModel task) async {
+    if (!_canCreateOrEditTasks) {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas modifier cette tâche.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     _taskController.setCurrentTask(task);
     await Get.toNamed(AppRoutes.createEditTask);
     await _load();
   }
 
-  // ✅ Ouvrir la page commentaires (sans utiliser comments_count dans l’UI)
   Future<void> _openComments(TaskModel task) async {
     final community = _communityController.currentCommunity.value;
     final role = (community?.role ?? 'MEMBRE').toString();
@@ -104,15 +114,14 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
       },
     );
 
-    // au retour, refresh (au cas où backend change quelque chose)
     await _load();
   }
 
   void _showTaskActions(TaskModel task) {
-    if (!_canManageTasks) {
+    if (!_canCreateOrEditTasks && !_canDeleteTasks && !_canChangeTaskStatus) {
       Get.snackbar(
         'Accès refusé',
-        'Vous n\'avez pas les autorisations nécessaires pour modifier ou supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
+        'Action non autorisée.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -143,44 +152,54 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                   ),
                 ),
                 const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.edit_outlined),
-                  title: const Text('Modifier la tâche'),
-                  onTap: () async {
-                    Get.back();
-                    await _editTask(task);
-                  },
-                ),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.person_outline),
-                  title: const Text('Changer l\'assignation'),
-                  subtitle: Text(
-                    task.assignedFullName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+
+                if (_canCreateOrEditTasks) ...[
+                  ListTile(
+                    leading: const Icon(Icons.edit_outlined),
+                    title: const Text('Modifier la tâche'),
+                    onTap: () async {
+                      Get.back();
+                      await _editTask(task);
+                    },
                   ),
-                  onTap: () async {
-                    Get.back();
-                    await _showAssignmentSheet(task);
-                  },
-                ),
-                const Divider(),
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: const Text('Changer l\'assignation'),
+                    subtitle: Text(
+                      task.assignedFullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    onTap: () async {
+                      Get.back();
+                      await _showAssignmentSheet(task);
+                    },
+                  ),
+                  const Divider(),
+                ],
+
                 _buildStatusTile(task, 'À faire', Colors.red),
                 _buildStatusTile(task, 'En cours', Colors.orange),
                 _buildStatusTile(task, 'Terminé', Colors.green),
-                const Divider(),
-                ListTile(
-                  leading: const Icon(Icons.delete_outline, color: Colors.red),
-                  title: const Text(
-                    'Supprimer',
-                    style: TextStyle(color: Colors.red),
+
+                if (_canDeleteTasks) ...[
+                  const Divider(),
+                  ListTile(
+                    leading: const Icon(
+                      Icons.delete_outline,
+                      color: Colors.red,
+                    ),
+                    title: const Text(
+                      'Supprimer',
+                      style: TextStyle(color: Colors.red),
+                    ),
+                    onTap: () {
+                      Get.back();
+                      _confirmDelete(task);
+                    },
                   ),
-                  onTap: () {
-                    Get.back();
-                    _confirmDelete(task);
-                  },
-                ),
+                ],
               ],
             ),
           ),
@@ -191,6 +210,16 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   Future<void> _showAssignmentSheet(TaskModel task) async {
+    if (!_canCreateOrEditTasks) {
+      Get.snackbar(
+        'Accès refusé',
+        'Vous ne pouvez pas changer l’assignation.',
+        backgroundColor: Colors.orange,
+        colorText: Colors.white,
+      );
+      return;
+    }
+
     List<MemberModel> members = [];
     try {
       members = await _communityController.getCommunityMembers(_communityId);
@@ -320,6 +349,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
     final isCurrent =
         _taskController.normalizeStatus(task.status) ==
         _taskController.normalizeStatus(status);
+
     return ListTile(
       leading: Icon(
         isCurrent ? Icons.check_circle : Icons.circle_outlined,
@@ -336,31 +366,21 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   Future<void> _changeTaskStatus(TaskModel task, String status) async {
-    if (!_canManageTasks) {
-      Get.snackbar(
-        'Accès refusé',
-        'Vous n\'avez pas les autorisations nécessaires pour modifier le statut de cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
-        backgroundColor: Colors.orange,
-        colorText: Colors.white,
-      );
-      return;
-    }
-
     final ok = await _taskController.updateTaskStatus(
       communityId: _communityId,
       projectId: _projectId,
       taskId: task.id,
       status: status,
     );
+
     if (ok) {
-      // Do not immediately reload from server: the local Kanban state has
-      // already been updated and an immediate fetch can reintroduce stale data.
       Future.delayed(const Duration(milliseconds: 900), () {
         _taskController.loadKanbanTasks(
           communityId: _communityId,
           projectId: _projectId,
         );
       });
+
       Get.snackbar(
         'Succès',
         'Statut changé vers "$status".',
@@ -380,10 +400,10 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
   }
 
   void _confirmDelete(TaskModel task) {
-    if (!_canManageTasks) {
+    if (!_canDeleteTasks) {
       Get.snackbar(
         'Accès refusé',
-        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
+        'Seul un administrateur peut supprimer une tâche.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -443,15 +463,17 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          _taskController.clearCurrentTask(); // Reset state for creation mode
-          await Get.toNamed(AppRoutes.createEditTask);
-          await _load();
-        },
-        icon: const Icon(Icons.add),
-        label: const Text('Nouvelle tâche'),
-      ),
+      floatingActionButton: _canCreateOrEditTasks
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                _taskController.clearCurrentTask();
+                await Get.toNamed(AppRoutes.createEditTask);
+                await _load();
+              },
+              icon: const Icon(Icons.add),
+              label: const Text('Nouvelle tâche'),
+            )
+          : null,
       body: Obx(() {
         if (_taskController.isLoading.value) {
           return const LoadingWidget(message: 'Chargement des tâches...');
@@ -486,6 +508,7 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
         if (k == null) {
           return const Center(child: Text('Aucune donnée'));
         }
+
         final todoTasks = k.todo.where((t) => !t.isDeleted).toList();
         final inProgressTasks = k.inProgress
             .where((t) => !t.isDeleted)
@@ -512,7 +535,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
-                    canManageTasks: _canManageTasks,
+                    canCreateOrEditTasks: _canCreateOrEditTasks,
+                    canDeleteTasks: _canDeleteTasks,
+                    canChangeTaskStatus: _canChangeTaskStatus,
                     onChangeStatus: _changeTaskStatus,
                   ),
                   const SizedBox(width: 12),
@@ -527,7 +552,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
-                    canManageTasks: _canManageTasks,
+                    canCreateOrEditTasks: _canCreateOrEditTasks,
+                    canDeleteTasks: _canDeleteTasks,
+                    canChangeTaskStatus: _canChangeTaskStatus,
                     onChangeStatus: _changeTaskStatus,
                   ),
                   const SizedBox(width: 12),
@@ -540,7 +567,9 @@ class _KanbanBoardPageState extends State<KanbanBoardPage> {
                     onOpen: _openTask,
                     onOpenComments: _openComments,
                     onLongPress: _showTaskActions,
-                    canManageTasks: _canManageTasks,
+                    canCreateOrEditTasks: _canCreateOrEditTasks,
+                    canDeleteTasks: _canDeleteTasks,
+                    canChangeTaskStatus: _canChangeTaskStatus,
                     onChangeStatus: _changeTaskStatus,
                   ),
                 ],
@@ -560,11 +589,11 @@ class _KanbanColumn extends StatelessWidget {
   final Color titleColor;
   final List<TaskModel> tasks;
   final Future<void> Function(TaskModel task) onOpen;
-
-  // ✅ ajouté uniquement pour le bouton Commentaires
   final Future<void> Function(TaskModel task) onOpenComments;
   final void Function(TaskModel task) onLongPress;
-  final bool canManageTasks;
+  final bool canCreateOrEditTasks;
+  final bool canDeleteTasks;
+  final bool canChangeTaskStatus;
   final Future<void> Function(TaskModel task, String status) onChangeStatus;
 
   const _KanbanColumn({
@@ -576,7 +605,9 @@ class _KanbanColumn extends StatelessWidget {
     required this.onOpen,
     required this.onOpenComments,
     required this.onLongPress,
-    required this.canManageTasks,
+    required this.canCreateOrEditTasks,
+    required this.canDeleteTasks,
+    required this.canChangeTaskStatus,
     required this.onChangeStatus,
   });
 
@@ -662,7 +693,9 @@ class _KanbanColumn extends StatelessWidget {
                         onTap: () => onOpen(task),
                         onLongPress: () => onLongPress(task),
                         onCommentsTap: () => onOpenComments(task),
-                        canManageTasks: canManageTasks,
+                        canCreateOrEditTasks: canCreateOrEditTasks,
+                        canDeleteTasks: canDeleteTasks,
+                        canChangeTaskStatus: canChangeTaskStatus,
                         onChangeStatus: (status) =>
                             onChangeStatus(task, status),
                       );
@@ -678,11 +711,11 @@ class _KanbanColumn extends StatelessWidget {
 class _TaskCard extends StatelessWidget {
   final TaskModel task;
   final VoidCallback onTap;
-
-  // ✅ ajouté uniquement pour le bouton Commentaires
   final VoidCallback onCommentsTap;
   final VoidCallback onLongPress;
-  final bool canManageTasks;
+  final bool canCreateOrEditTasks;
+  final bool canDeleteTasks;
+  final bool canChangeTaskStatus;
   final Future<void> Function(String status) onChangeStatus;
 
   const _TaskCard({
@@ -690,7 +723,9 @@ class _TaskCard extends StatelessWidget {
     required this.onTap,
     required this.onCommentsTap,
     required this.onLongPress,
-    required this.canManageTasks,
+    required this.canCreateOrEditTasks,
+    required this.canDeleteTasks,
+    required this.canChangeTaskStatus,
     required this.onChangeStatus,
   });
 
@@ -759,7 +794,7 @@ class _TaskCard extends StatelessWidget {
                 PopupMenuButton<String>(
                   tooltip: 'Changer le statut',
                   onSelected: (status) => onChangeStatus(status),
-                  enabled: canManageTasks,
+                  enabled: canChangeTaskStatus,
                   itemBuilder: (context) => const [
                     PopupMenuItem(value: 'À faire', child: Text('À faire')),
                     PopupMenuItem(value: 'En cours', child: Text('En cours')),
@@ -808,10 +843,8 @@ class _TaskCard extends StatelessWidget {
                 style: TextStyle(color: metaColor),
               ),
             const SizedBox(height: 10),
-
             Row(
               children: [
-                // ✅ ✅ ✅ PARTIE MODIFIÉE : on affiche seulement "Commentaires"
                 InkWell(
                   onTap: onCommentsTap,
                   borderRadius: BorderRadius.circular(999),
@@ -854,10 +887,7 @@ class _TaskCard extends StatelessWidget {
                     ),
                   ),
                 ),
-
-                // ✅ ✅ ✅ FIN MODIF
                 const Spacer(),
-
                 if (due != null)
                   Container(
                     padding: const EdgeInsets.symmetric(

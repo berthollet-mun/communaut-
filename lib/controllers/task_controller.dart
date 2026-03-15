@@ -15,6 +15,7 @@ class TaskController extends GetxController {
 
   String _normalizeStatus(String raw) {
     final value = raw.trim().toLowerCase();
+
     if (value.contains('en cours') ||
         value.contains('en_cours') ||
         value.contains('in_progress') ||
@@ -23,11 +24,11 @@ class TaskController extends GetxController {
         value == 'ongoing') {
       return 'En cours';
     }
-    if (value.contains('termin') ||
-        value == 'completed' ||
-        value == 'done') {
+
+    if (value.contains('termin') || value == 'completed' || value == 'done') {
       return 'Terminé';
     }
+
     if (value.contains('todo') ||
         value.contains('to_do') ||
         value.contains('a faire') ||
@@ -35,12 +36,12 @@ class TaskController extends GetxController {
         value == 'pending') {
       return 'À faire';
     }
+
     return 'À faire';
   }
 
   String normalizeStatus(String raw) => _normalizeStatus(raw);
 
-  // ✅ Helper pour envoyer des notifications
   void _notify(
     String type,
     String title,
@@ -105,7 +106,6 @@ class TaskController extends GetxController {
       if (task != null) {
         _addTaskToKanban(task);
 
-        // ✅ NOTIFICATION : Tâche créée
         _notify(
           'task_created',
           'Tâche créée',
@@ -113,17 +113,12 @@ class TaskController extends GetxController {
           relatedId: task.id,
           relatedType: 'task',
         );
-
-        return task;
       }
 
-      return null;
+      return task;
     } catch (e) {
       error.value = 'Erreur de création de la tâche: $e';
-
-      // ✅ NOTIFICATION : Erreur
       _notify('error', 'Erreur', 'Impossible de créer la tâche: $e');
-
       return null;
     } finally {
       isLoading.value = false;
@@ -188,7 +183,6 @@ class TaskController extends GetxController {
           );
         }
 
-        // ✅ NOTIFICATION : Tâche modifiée
         _notify(
           'task_updated',
           'Tâche modifiée',
@@ -198,7 +192,9 @@ class TaskController extends GetxController {
         );
         return true;
       } else {
-        error.value = response.message ?? 'Erreur inconnue';
+        error.value = response.displayMessage.isNotEmpty
+            ? response.displayMessage
+            : 'Erreur inconnue';
         return false;
       }
     } catch (e) {
@@ -218,6 +214,7 @@ class TaskController extends GetxController {
     try {
       isLoading.value = true;
       error.value = '';
+
       final normalizedStatus = _normalizeStatus(status);
 
       final response = await _taskService.updateTaskStatus(
@@ -228,53 +225,54 @@ class TaskController extends GetxController {
       );
 
       if (response.success) {
-        // On tente de récupérer la tâche mise à jour côté serveur,
-        // mais on ne bloque plus l'utilisateur si le backend répond "succès"
-        // avec un statut légèrement différent (par ex. normalisation côté API).
         TaskModel? updated;
-        String? serverStatus;
+        String finalStatus = normalizedStatus;
+
         try {
           updated = await _taskService.getTaskDetails(
             communityId: communityId,
             projectId: projectId,
             taskId: taskId,
           );
-          if (updated != null) {
-            serverStatus = _normalizeStatus(updated.status);
-          }
-        } catch (_) {
-          // En cas d'erreur réseau secondaire, on ne bloque pas le succès principal.
-        }
 
-        final finalStatus = serverStatus ?? normalizedStatus;
+          if (updated != null) {
+            finalStatus = _normalizeStatus(updated.status);
+          }
+        } catch (_) {}
 
         _updateTaskStatusInKanban(taskId, finalStatus);
 
         if (currentTask.value?.id == taskId) {
-          currentTask.value = (updated ?? currentTask.value)
-              ?.copyWith(status: finalStatus);
+          currentTask.value = (updated ?? currentTask.value)?.copyWith(
+            status: finalStatus,
+          );
         }
 
-        // ✅ NOTIFICATION : Statut changé
-        String icon = normalizedStatus == 'Terminé'
+        final icon = finalStatus == 'Terminé'
             ? '✅'
-            : (normalizedStatus == 'En cours' ? '🔄' : '📋');
+            : finalStatus == 'En cours'
+            ? '🔄'
+            : '📋';
+
         _notify(
           'task_status_changed',
           'Statut modifié',
-          '$icon La tâche est maintenant "$normalizedStatus".',
+          '$icon La tâche est maintenant "$finalStatus".',
           relatedId: taskId,
           relatedType: 'task',
         );
 
-        // ✅ Stats refresh (avec léger délai)
-        Future.delayed(const Duration(milliseconds: 800), () {
-          Get.find<ProjectController>().refreshAllProjectsStats(communityId);
-        });
+        if (Get.isRegistered<ProjectController>()) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            Get.find<ProjectController>().refreshAllProjectsStats(communityId);
+          });
+        }
 
         return true;
       } else {
-        error.value = response.message ?? 'Erreur inconnue';
+        error.value = response.displayMessage.isNotEmpty
+            ? response.displayMessage
+            : 'Impossible de changer le statut';
         return false;
       }
     } catch (e) {
@@ -294,10 +292,8 @@ class TaskController extends GetxController {
       isLoading.value = true;
       error.value = '';
 
-      // Sauvegarder le titre avant suppression
       String? taskTitle;
-      final allTasksList = allTasks;
-      final taskToDelete = allTasksList.firstWhereOrNull((t) => t.id == taskId);
+      final taskToDelete = allTasks.firstWhereOrNull((t) => t.id == taskId);
       taskTitle = taskToDelete?.titre;
 
       final response = await _taskService.deleteTask(
@@ -313,27 +309,25 @@ class TaskController extends GetxController {
           currentTask.value = null;
         }
 
-        // Force reload from backend to keep kanban strictly in sync.
-        await loadKanbanTasks(
-          communityId: communityId,
-          projectId: projectId,
-        );
+        await loadKanbanTasks(communityId: communityId, projectId: projectId);
 
-        // ✅ NOTIFICATION : Tâche supprimée
         _notify(
           'task_deleted',
           'Tâche supprimée',
           'La tâche "${taskTitle ?? 'Tâche'}" a été supprimée.',
         );
 
-        // ✅ Stats refresh (avec léger délai pour laisser le backend respirer)
-        Future.delayed(const Duration(milliseconds: 800), () {
-          Get.find<ProjectController>().refreshAllProjectsStats(communityId);
-        });
+        if (Get.isRegistered<ProjectController>()) {
+          Future.delayed(const Duration(milliseconds: 800), () {
+            Get.find<ProjectController>().refreshAllProjectsStats(communityId);
+          });
+        }
 
         return true;
       } else {
-        error.value = response.message ?? 'Erreur inconnue';
+        error.value = response.displayMessage.isNotEmpty
+            ? response.displayMessage
+            : 'Erreur inconnue';
         return false;
       }
     } catch (e) {
@@ -352,34 +346,35 @@ class TaskController extends GetxController {
     currentTask.value = null;
   }
 
-  // Méthodes privées pour manipuler le kanban
   void _addTaskToKanban(TaskModel task) {
-    if (kanban.value != null) {
-      final status = _normalizeStatus(task.status);
-      final newKanban = KanbanModel(
-        todo: status == 'À faire'
-            ? [...kanban.value!.todo, task]
-            : kanban.value!.todo,
-        inProgress: status == 'En cours'
-            ? [...kanban.value!.inProgress, task]
-            : kanban.value!.inProgress,
-        done: status == 'Terminé'
-            ? [...kanban.value!.done, task]
-            : kanban.value!.done,
-      );
-      kanban.value = newKanban;
-      kanban.refresh();
-    }
+    if (kanban.value == null) return;
+
+    final status = _normalizeStatus(task.status);
+
+    kanban.value = KanbanModel(
+      todo: status == 'À faire'
+          ? [...kanban.value!.todo, task]
+          : [...kanban.value!.todo],
+      inProgress: status == 'En cours'
+          ? [...kanban.value!.inProgress, task]
+          : [...kanban.value!.inProgress],
+      done: status == 'Terminé'
+          ? [...kanban.value!.done, task]
+          : [...kanban.value!.done],
+    );
+
+    kanban.refresh();
   }
 
   void _updateTaskStatusInKanban(int taskId, String newStatusRaw) {
     if (kanban.value == null) return;
+
     final newStatus = _normalizeStatus(newStatusRaw);
 
     TaskModel? task;
-    List<TaskModel> newTodo = [...kanban.value!.todo];
-    List<TaskModel> newInProgress = [...kanban.value!.inProgress];
-    List<TaskModel> newDone = [...kanban.value!.done];
+    final newTodo = [...kanban.value!.todo];
+    final newInProgress = [...kanban.value!.inProgress];
+    final newDone = [...kanban.value!.done];
 
     task = newTodo.firstWhereOrNull((t) => t.id == taskId);
     if (task != null) {
@@ -396,31 +391,31 @@ class TaskController extends GetxController {
       }
     }
 
-    if (task != null) {
-      final updatedTask = task.copyWith(status: newStatus);
+    if (task == null) return;
 
-      switch (newStatus) {
-        case 'À faire':
-          newTodo.add(updatedTask);
-          break;
-        case 'En cours':
-          newInProgress.add(updatedTask);
-          break;
-        case 'Terminé':
-          newDone.add(updatedTask);
-          break;
-        default:
-          newTodo.add(updatedTask);
-          break;
-      }
+    final updatedTask = task.copyWith(status: newStatus);
 
-      kanban.value = KanbanModel(
-        todo: newTodo,
-        inProgress: newInProgress,
-        done: newDone,
-      );
-      kanban.refresh();
+    switch (newStatus) {
+      case 'À faire':
+        newTodo.add(updatedTask);
+        break;
+      case 'En cours':
+        newInProgress.add(updatedTask);
+        break;
+      case 'Terminé':
+        newDone.add(updatedTask);
+        break;
+      default:
+        newTodo.add(updatedTask);
+        break;
     }
+
+    kanban.value = KanbanModel(
+      todo: newTodo,
+      inProgress: newInProgress,
+      done: newDone,
+    );
+    kanban.refresh();
   }
 
   void _removeTaskFromKanban(int taskId) {
@@ -436,7 +431,6 @@ class TaskController extends GetxController {
     kanban.refresh();
   }
 
-  // Getters utiles
   List<TaskModel> get allTasks {
     if (kanban.value == null) return [];
     return [
@@ -454,4 +448,3 @@ class TaskController extends GetxController {
     return (completedTasksCount / totalTasksCount) * 100;
   }
 }
-

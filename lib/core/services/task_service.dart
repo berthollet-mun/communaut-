@@ -19,30 +19,54 @@ class TaskService extends GetxService {
     return {};
   }
 
-  List<dynamic> _extractList(dynamic raw) {
-    if (raw == null) return [];
-    if (raw is List) return raw;
-    if (raw is Map<String, dynamic>) {
-      for (final key in ['tasks', 'data', 'items', 'results']) {
-        if (raw[key] != null) return _extractList(raw[key]);
-      }
-    }
-    return [];
-  }
-
   Map<String, dynamic>? _extractKanbanPayload(dynamic raw) {
     final data = _extractDataMap(raw);
     if (data.isEmpty) return null;
-    if (data['kanban'] is Map<String, dynamic>) return data['kanban'];
+    if (data['kanban'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['kanban']);
+    }
     return data;
   }
 
   Map<String, dynamic>? _extractTaskPayload(dynamic raw) {
     final data = _extractDataMap(raw);
     if (data.isEmpty) return null;
-    if (data['task'] is Map<String, dynamic>) return data['task'];
-    if (data.containsKey('id') || data.containsKey('task_id')) return data;
+    if (data['task'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['task']);
+    }
+    if (data.containsKey('id') || data.containsKey('task_id')) {
+      return data;
+    }
     return null;
+  }
+
+  String _normalizeStatusForApi(String raw) {
+    final value = raw.trim().toLowerCase();
+
+    if (value.contains('en cours') ||
+        value.contains('en_cours') ||
+        value.contains('in_progress') ||
+        value.contains('in progress') ||
+        value == 'doing' ||
+        value == 'ongoing') {
+      return 'En cours';
+    }
+
+    if (value.contains('termin') ||
+        value.contains('done') ||
+        value == 'completed') {
+      return 'Terminé';
+    }
+
+    if (value.contains('todo') ||
+        value.contains('to_do') ||
+        value.contains('a faire') ||
+        value.contains('à faire') ||
+        value == 'pending') {
+      return 'À faire';
+    }
+
+    return 'À faire';
   }
 
   Future<KanbanModel?> getKanbanTasks({
@@ -50,14 +74,18 @@ class TaskService extends GetxService {
     required int projectId,
   }) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+
     final response = await _apiService.get(
       '/communities/$communityId/projects/$projectId/tasks?t=$timestamp',
     );
 
     if (response.success) {
       final payload = _extractKanbanPayload(response.data);
-      if (payload != null) return KanbanModel.fromJson(payload);
+      if (payload != null) {
+        return KanbanModel.fromJson(payload);
+      }
     }
+
     return null;
   }
 
@@ -69,10 +97,7 @@ class TaskService extends GetxService {
     int? assignedTo,
     String? dueDate,
   }) async {
-    final data = <String, dynamic>{
-      'titre': titre,
-      'description': description,
-    };
+    final data = <String, dynamic>{'titre': titre, 'description': description};
 
     if (assignedTo != null) data['assigned_to'] = assignedTo;
     if (dueDate != null) data['due_date'] = dueDate;
@@ -95,14 +120,11 @@ class TaskService extends GetxService {
       if (payload != null) return TaskModel.fromJson(payload);
     }
 
-    if (!response.success) {
-      throw Exception(
-        response.displayMessage.isNotEmpty
-            ? response.displayMessage
-            : 'Erreur creation tache',
-      );
-    }
-    return null;
+    throw Exception(
+      response.displayMessage.isNotEmpty
+          ? response.displayMessage
+          : 'Erreur création tâche',
+    );
   }
 
   Future<TaskModel?> getTaskDetails({
@@ -111,6 +133,7 @@ class TaskService extends GetxService {
     required int taskId,
   }) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
+
     final response = await _apiService.get(
       '/communities/$communityId/projects/$projectId/tasks/$taskId?t=$timestamp',
     );
@@ -119,6 +142,7 @@ class TaskService extends GetxService {
       final payload = _extractTaskPayload(response.data);
       if (payload != null) return TaskModel.fromJson(payload);
     }
+
     return null;
   }
 
@@ -133,9 +157,12 @@ class TaskService extends GetxService {
     bool clearAssignment = false,
   }) async {
     final data = <String, dynamic>{};
+
     if (titre != null) data['titre'] = titre;
     if (description != null) data['description'] = description;
-    if (assignedTo != null || clearAssignment) data['assigned_to'] = assignedTo;
+    if (assignedTo != null || clearAssignment) {
+      data['assigned_to'] = assignedTo;
+    }
     if (dueDate != null) data['due_date'] = dueDate;
 
     var response = await _apiService.put(
@@ -160,192 +187,17 @@ class TaskService extends GetxService {
     required int taskId,
     required String status,
   }) async {
-    final desiredStatus = _normalizeStatus(status);
-    final statusCandidates = _statusCandidates(desiredStatus);
-    final currentTask = await getTaskDetails(
-      communityId: communityId,
-      projectId: projectId,
-      taskId: taskId,
-    );
-    ApiResponse? lastResponse;
-    final statusEndpoint =
+    final endpoint =
         '/communities/$communityId/projects/$projectId/tasks/$taskId/status';
-    final taskEndpoint =
-        '/communities/$communityId/projects/$projectId/tasks/$taskId';
 
-    for (final candidate in statusCandidates) {
-      final payloads = <Map<String, dynamic>>[
-        {'status': candidate},
-        {'statut': candidate},
-        {'task_status': candidate},
-        {'etat': candidate},
-      ];
+    final normalizedStatus = _normalizeStatusForApi(status);
 
-      for (final payload in payloads) {
-        var response = await _apiService.patch(statusEndpoint, payload);
-        if (response.success) {
-          if (await _statusWasApplied(
-            communityId: communityId,
-            projectId: projectId,
-            taskId: taskId,
-            expectedStatus: desiredStatus,
-          )) {
-            return response;
-          }
-          lastResponse = ApiResponse.error(
-            'Le serveur repond succes mais le statut reste inchange.',
-            code: 'STATUS_NOT_APPLIED',
-          );
-        } else {
-          lastResponse = response;
-        }
+    // ✅ vrai PATCH uniquement
+    final response = await _apiService.patch(endpoint, {
+      'status': normalizedStatus,
+    });
 
-        response = await _apiService.post(statusEndpoint, {
-          ...payload,
-          '_method': 'PATCH',
-        });
-        if (response.success) {
-          if (await _statusWasApplied(
-            communityId: communityId,
-            projectId: projectId,
-            taskId: taskId,
-            expectedStatus: desiredStatus,
-          )) {
-            return response;
-          }
-          lastResponse = ApiResponse.error(
-            'Le serveur repond succes mais le statut reste inchange.',
-            code: 'STATUS_NOT_APPLIED',
-          );
-        } else {
-          lastResponse = response;
-        }
-      }
-
-      // Fallback conservateur: certains backends appliquent mieux le statut via
-      // une mise a jour complete de la tache.
-      final fullPayloads = _fullTaskPayloadCandidates(currentTask, candidate);
-      for (final fullPayload in fullPayloads) {
-        var response = await _apiService.put(taskEndpoint, fullPayload);
-        if (response.success) {
-          if (await _statusWasApplied(
-            communityId: communityId,
-            projectId: projectId,
-            taskId: taskId,
-            expectedStatus: desiredStatus,
-          )) {
-            return response;
-          }
-          lastResponse = ApiResponse.error(
-            'Le serveur repond succes mais le statut reste inchange.',
-            code: 'STATUS_NOT_APPLIED',
-          );
-        } else {
-          lastResponse = response;
-        }
-
-        response = await _apiService.post(taskEndpoint, {
-          ...fullPayload,
-          '_method': 'PUT',
-        });
-        if (response.success) {
-          if (await _statusWasApplied(
-            communityId: communityId,
-            projectId: projectId,
-            taskId: taskId,
-            expectedStatus: desiredStatus,
-          )) {
-            return response;
-          }
-          lastResponse = ApiResponse.error(
-            'Le serveur repond succes mais le statut reste inchange.',
-            code: 'STATUS_NOT_APPLIED',
-          );
-        } else {
-          lastResponse = response;
-        }
-      }
-    }
-
-    return lastResponse ??
-        ApiResponse.error(
-          'Impossible de changer le statut',
-          code: 'STATUS_UPDATE_FAILED',
-        );
-  }
-
-  List<String> _statusCandidates(String status) {
-    final value = status.trim().toLowerCase();
-    if (value.contains('termin') || value == 'done' || value == 'completed') {
-      return ['Terminé', 'Terminee', 'termine', 'done', 'completed'];
-    }
-    if (value.contains('en cours') ||
-        value.contains('in_progress') ||
-        value.contains('in progress') ||
-        value == 'doing') {
-      return ['En cours', 'en cours', 'in_progress', 'in progress', 'doing'];
-    }
-    return ['À faire', 'A faire', 'a_faire', 'todo', 'to_do', 'pending'];
-  }
-
-  List<Map<String, dynamic>> _fullTaskPayloadCandidates(
-    TaskModel? task,
-    String status,
-  ) {
-    if (task == null) return const [];
-
-    final base = <String, dynamic>{
-      'titre': task.titre,
-      'description': task.description,
-      'assigned_to': task.assigned_to,
-      ..._dueDatePayload(task.due_date),
-    };
-
-    return [
-      {...base, 'status': status},
-      {...base, 'statut': status},
-      {...base, 'task_status': status},
-      {...base, 'etat': status},
-    ];
-  }
-
-  Map<String, dynamic> _dueDatePayload(DateTime? dueDate) {
-    if (dueDate == null) return {};
-    final yyyy = dueDate.year.toString().padLeft(4, '0');
-    final mm = dueDate.month.toString().padLeft(2, '0');
-    final dd = dueDate.day.toString().padLeft(2, '0');
-    return {'due_date': '$yyyy-$mm-$dd'};
-  }
-
-  String _normalizeStatus(String raw) {
-    final value = raw.trim().toLowerCase();
-    if (value.contains('en cours') ||
-        value.contains('en_cours') ||
-        value.contains('in_progress') ||
-        value.contains('in progress') ||
-        value == 'doing' ||
-        value == 'ongoing') {
-      return 'En cours';
-    }
-    if (value.contains('termin') || value == 'completed' || value == 'done') {
-      return 'Terminé';
-    }
-    return 'À faire';
-  }
-
-  Future<bool> _statusWasApplied({
-    required int communityId,
-    required int projectId,
-    required int taskId,
-    required String expectedStatus,
-  }) async {
-    final updated = await getTaskDetails(
-      communityId: communityId,
-      projectId: projectId,
-      taskId: taskId,
-    );
-    if (updated == null) return false;
-    return _normalizeStatus(updated.status) == _normalizeStatus(expectedStatus);
+    return response;
   }
 
   Future<ApiResponse> deleteTask({

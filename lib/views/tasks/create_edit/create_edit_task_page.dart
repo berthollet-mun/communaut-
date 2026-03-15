@@ -37,6 +37,13 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
   TaskModel? _currentTask;
   bool _isLoadingMembers = false;
 
+  String get _role =>
+      (_communityController.currentCommunity.value?.role ?? 'MEMBRE')
+          .toUpperCase();
+
+  bool get _canCreateOrEdit => _role == 'ADMIN' || _role == 'RESPONSABLE';
+  bool get _canDelete => _role == 'ADMIN';
+
   @override
   void initState() {
     super.initState();
@@ -54,6 +61,19 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       return;
     }
 
+    if (!_canCreateOrEdit) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Get.snackbar(
+          'Accès refusé',
+          'Vous ne pouvez pas créer ou modifier une tâche.',
+          backgroundColor: Colors.orange,
+          colorText: Colors.white,
+        );
+        Get.back();
+      });
+      return;
+    }
+
     _currentTask = _taskController.currentTask.value;
     _isEditMode = _currentTask != null;
 
@@ -63,7 +83,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       _dueDate = _currentTask!.due_date;
     }
 
-    // Charger les membres après le premier frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadMembers(community.community_id);
     });
@@ -79,6 +98,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         communityId,
       );
       final currentUserId = _authController.user.value?.user_id;
+
       final assignableMembers = members.where((m) {
         final isCurrentUser = currentUserId != null && m.id == currentUserId;
         final isAdmin = m.role.toUpperCase() == 'ADMIN';
@@ -155,29 +175,29 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                       ),
                     )
                   else
-                  ..._members.map(
-                    (member) => ListTile(
-                    leading: CircleAvatar(
-                        backgroundColor: Colors.blue,
-                        child: Text(
-                          _initials(member),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
+                    ..._members.map(
+                      (member) => ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: Colors.blue,
+                          child: Text(
+                            _initials(member),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                            ),
                           ),
                         ),
+                        title: Text(member.fullName),
+                        subtitle: Text(member.email),
+                        trailing: _assignedTo?.id == member.id
+                            ? const Icon(Icons.check, color: Colors.green)
+                            : null,
+                        onTap: () {
+                          setState(() => _assignedTo = member);
+                          Get.back();
+                        },
                       ),
-                      title: Text(member.fullName),
-                      subtitle: Text(member.email),
-                      trailing: _assignedTo?.id == member.id
-                          ? const Icon(Icons.check, color: Colors.green)
-                          : null,
-                      onTap: () {
-                        setState(() => _assignedTo = member);
-                        Get.back();
-                      },
                     ),
-                  ),
                 ],
               ),
             ),
@@ -193,13 +213,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
     final community = _communityController.currentCommunity.value;
     final project = _projectController.currentProject.value;
 
-    // DEBUG
-    print('=== SAVE TASK DEBUG ===');
-    print('Community: ${community?.community_id}');
-    print('Project ID: ${project?.id}');
-    print('Project nom: ${project?.nom}');
-    print('=======================');
-
     if (community == null || project == null || project.id == 0) {
       Get.snackbar(
         'Erreur',
@@ -213,14 +226,10 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
     final dueDateStr = _dueDate != null
         ? '${_dueDate!.year}-${_dueDate!.month.toString().padLeft(2, '0')}-${_dueDate!.day.toString().padLeft(2, '0')}'
         : null;
+
     final currentUserId = _authController.user.value?.user_id;
 
-    // Logique d'assignation :
-    // - En création, si l'utilisateur est ADMIN et qu'il est seul dans la communauté
-    //   (aucun autre membre assignable), la tâche lui est assignée par défaut.
-    // - Dès qu'il y a d'autres membres, les tâches peuvent être assignées à ces membres,
-    //   mais pas à l'admin lui‑même.
-    bool _assignedIsInvalid() {
+    bool assignedIsInvalid() {
       if (_assignedTo == null) return false;
       final isAdminAssignee = _assignedTo!.role.toUpperCase() == 'ADMIN';
       final isCurrentUser =
@@ -234,16 +243,12 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         community.role == 'ADMIN' &&
         _members.isEmpty &&
         currentUserId != null) {
-      // Cas 1 : création par un admin seul dans la communauté → assigné à l'admin.
       assignedToId = currentUserId;
     } else {
-      // Cas 2 : édition ou communauté avec d'autres membres → on respecte la sélection,
-      // tout en empêchant l’assignation à l’admin lui‑même.
-      assignedToId = _assignedIsInvalid() ? null : _assignedTo?.id;
+      assignedToId = assignedIsInvalid() ? null : _assignedTo?.id;
     }
 
     if (_isEditMode && _currentTask != null) {
-      // MODE ÉDITION
       final success = await _taskController.updateTask(
         communityId: community.community_id,
         projectId: project.id,
@@ -256,7 +261,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       );
 
       if (success) {
-        // _taskController.clearCurrentTask(); // ❌ SUPPRIMÉ : sinon la page de détails devient vide au retour
         Get.back();
         Get.snackbar(
           'Succès',
@@ -267,13 +271,14 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       } else {
         Get.snackbar(
           'Erreur',
-          'Impossible de mettre à jour',
+          _taskController.error.value.isNotEmpty
+              ? _taskController.error.value
+              : 'Impossible de mettre à jour',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
       }
     } else {
-      // MODE CRÉATION
       final task = await _taskController.createTask(
         communityId: community.community_id,
         projectId: project.id,
@@ -294,7 +299,9 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       } else {
         Get.snackbar(
           'Erreur',
-          'Impossible de créer la tâche',
+          _taskController.error.value.isNotEmpty
+              ? _taskController.error.value
+              : 'Impossible de créer la tâche',
           backgroundColor: Colors.red,
           colorText: Colors.white,
         );
@@ -310,7 +317,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
       appBar: AppBar(
         title: Text(_isEditMode ? 'Modifier la tâche' : 'Nouvelle tâche'),
         actions: [
-          if (_isEditMode)
+          if (_isEditMode && _canDelete)
             IconButton(
               icon: const Icon(Icons.delete_outline),
               onPressed: _confirmDelete,
@@ -318,9 +325,7 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
         ],
       ),
       body: _isLoadingMembers
-          ? const LoadingWidget(
-              message: 'Chargement des membres...',
-            )
+          ? const LoadingWidget(message: 'Chargement des membres...')
           : SingleChildScrollView(
               padding: const EdgeInsets.all(24),
               child: Form(
@@ -342,7 +347,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                       Text('Projet: ${project.nom}', style: AppTheme.bodyText2),
                     const SizedBox(height: 32),
 
-                    // Titre
                     CustomFormField(
                       controller: _titleController,
                       label: 'Titre',
@@ -354,7 +358,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Description
                     TextFormField(
                       controller: _descriptionController,
                       decoration: const InputDecoration(
@@ -369,7 +372,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Assignation
                     ListTile(
                       leading: const Icon(Icons.person_outline),
                       title: const Text('Assigner à'),
@@ -386,7 +388,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     ),
                     const Divider(),
 
-                    // Date d'échéance
                     ListTile(
                       leading: const Icon(Icons.calendar_today_outlined),
                       title: const Text('Date d\'échéance'),
@@ -415,7 +416,6 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
                     ),
                     const SizedBox(height: 32),
 
-                    // Bouton
                     Obx(() {
                       if (_taskController.isLoading.value) {
                         return const LoadingWidget(
@@ -454,12 +454,11 @@ class _CreateEditTaskPageState extends State<CreateEditTaskPage> {
   void _confirmDelete() {
     final community = _communityController.currentCommunity.value!;
     final project = _projectController.currentProject.value!;
-    final role = community.role;
 
-    if (role == 'MEMBRE') {
+    if (!_canDelete) {
       Get.snackbar(
         'Accès refusé',
-        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
+        'Seul un administrateur peut supprimer une tâche.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );

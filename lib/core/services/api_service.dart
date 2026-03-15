@@ -67,11 +67,22 @@ class ApiService extends GetxService {
 
   Future<ApiResponse> patch(String endpoint, Map<String, dynamic> data) async {
     try {
+      final uri = Uri.parse('$baseUrl$endpoint');
+      final headers = await _getHeaders();
+      final encodedBody = json.encode(data);
+
+      print('=== API PATCH REQUEST ===');
+      print('URL: $uri');
+      print('Headers: $headers');
+      print('Body: $encodedBody');
+      print('=========================');
+
       final response = await http.patch(
-        Uri.parse('$baseUrl$endpoint'),
-        headers: await _getHeaders(),
-        body: json.encode(data),
+        uri,
+        headers: headers,
+        body: encodedBody,
       );
+
       return _handleResponse(response);
     } catch (e) {
       return ApiResponse.error(
@@ -99,14 +110,13 @@ class ApiService extends GetxService {
   ApiResponse _handleResponse(http.Response response) {
     print('=== API RESPONSE ===');
     print('URL: ${response.request?.url}');
+    print('Method: ${response.request?.method}');
     print('Status Code: ${response.statusCode}');
     print('Body: ${response.body}');
     print('====================');
 
-    // ✅ Gestion body vide
     if (response.body.isEmpty) {
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // ✅ petite amélioration: message "OK" si body vide
         return ApiResponse.success(message: 'OK', data: {});
       }
       return ApiResponse.error(
@@ -127,30 +137,26 @@ class ApiService extends GetxService {
       final backendHint = rawBody.contains('validateDate')
           ? 'Erreur backend: validateDate() manquant dans l API (mise a jour tache).'
           : 'Erreur backend PHP renvoyee en HTML.';
-      return ApiResponse.error(
-        backendHint,
-        code: 'BACKEND_PHP_ERROR',
-      );
+      return ApiResponse.error(backendHint, code: 'BACKEND_PHP_ERROR');
     }
 
     try {
       final dynamic decoded = json.decode(response.body);
 
-      // Le backend peut renvoyer une liste ou un map
       final Map<String, dynamic> data = decoded is Map<String, dynamic>
           ? decoded
           : <String, dynamic>{'data': decoded};
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // ✅ NOUVEAU : Vérifier si le JSON contient success: false
-        // car certains APIs renvoient 200 OK avec un corps d'erreur
         final bool isActuallySuccess = data['success'] ?? true;
 
         if (!isActuallySuccess) {
           final String error =
               (data['message'] ?? data['error'] ?? 'Erreur métier').toString();
-          return ApiResponse.error(error,
-              code: data['code']?.toString() ?? 'BUSINESS_ERROR');
+          return ApiResponse.error(
+            error,
+            code: data['code']?.toString() ?? 'BUSINESS_ERROR',
+          );
         }
 
         final String? msg =
@@ -162,18 +168,16 @@ class ApiService extends GetxService {
 
         return ApiResponse.success(message: msg, data: data);
       } else {
-        // ✅ 1) message simple
         String error = (data['error'] ?? data['message'] ?? 'Erreur inconnue')
             .toString();
 
-        // ✅ 2) Laravel validation: errors:{field:[msg]}
         if (data['errors'] is Map) {
           final errors = data['errors'] as Map;
           if (errors.isNotEmpty) {
             final firstKey = errors.keys.first;
             final firstVal = errors[firstKey];
             if (firstVal is List && firstVal.isNotEmpty) {
-              error = firstVal.first.toString(); // ✅ message le plus utile
+              error = firstVal.first.toString();
             } else if (firstVal != null) {
               error = firstVal.toString();
             }

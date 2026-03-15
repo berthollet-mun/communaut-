@@ -27,6 +27,13 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
 
   final RxBool _firstLoad = true.obs;
 
+  String get _role =>
+      (_communityController.currentCommunity.value?.role ?? 'MEMBRE')
+          .toUpperCase();
+
+  bool get _canEditTask => _role == 'ADMIN' || _role == 'RESPONSABLE';
+  bool get _canDeleteTask => _role == 'ADMIN';
+
   @override
   void initState() {
     super.initState();
@@ -40,7 +47,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     _projectId = (args['projectId'] ?? project?.id) ?? -1;
     _communityId = (args['communityId'] ?? community?.community_id) ?? -1;
 
-    // évite d’afficher une ancienne tâche avant fetch
     _taskController.currentTask.value = null;
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -94,7 +100,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   Future<void> _openComments(TaskModel task) async {
     final community = _communityController.currentCommunity.value;
 
-    // ✅ on attend le retour, puis on refresh les détails (donc compteur)
     await Get.toNamed(
       AppRoutes.taskComments,
       arguments: {
@@ -106,7 +111,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       },
     );
 
-    // ✅ refresh au retour
     await _loadData();
   }
 
@@ -119,19 +123,17 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
         title: const Text('Détails'),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _loadData),
-          IconButton(
-            icon: const Icon(Icons.edit),
-            onPressed: () => Get.toNamed(AppRoutes.createEditTask),
-          ),
-          Obx(() {
-            final community = _communityController.currentCommunity.value;
-            if (community?.role == 'MEMBRE') return const SizedBox.shrink();
-            return IconButton(
+          if (_canEditTask)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () => Get.toNamed(AppRoutes.createEditTask),
+            ),
+          if (_canDeleteTask)
+            IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: _confirmDelete,
               tooltip: 'Supprimer',
-            );
-          }),
+            ),
         ],
       ),
       body: Obx(() {
@@ -154,8 +156,6 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                 const SizedBox(height: 16),
                 _buildDetails(task, community),
                 const SizedBox(height: 16),
-
-                // ✅ mini section commentaires
                 _buildCommentsMini(task),
               ],
             ),
@@ -250,11 +250,9 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
           _buildDescriptionInline(task),
           const SizedBox(height: 16),
 
-          if (community.role != 'MEMBRE') ...[
-            Text('Changer statut', style: AppTheme.bodyText2),
-            const SizedBox(height: 10),
-            _buildStatusSelector(task),
-          ],
+          Text('Changer statut', style: AppTheme.bodyText2),
+          const SizedBox(height: 10),
+          _buildStatusSelector(task),
         ],
       ),
     );
@@ -342,7 +340,9 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
       spacing: 10,
       runSpacing: 10,
       children: statuses.map((status) {
-        final isSelected = task.status == status;
+        final normalizedCurrent = _taskController.normalizeStatus(task.status);
+        final normalizedTarget = _taskController.normalizeStatus(status);
+        final isSelected = normalizedCurrent == normalizedTarget;
         final color = _getStatusColor(status);
 
         return ChoiceChip(
@@ -428,11 +428,10 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
   }
 
   void _confirmDelete() {
-    final role = _communityController.currentCommunity.value?.role ?? 'MEMBRE';
-    if (role == 'MEMBRE') {
+    if (!_canDeleteTask) {
       Get.snackbar(
         'Accès refusé',
-        'Vous n\'avez pas les autorisations nécessaires pour supprimer cette tâche. Veuillez contacter un administrateur si vous pensez qu\'il s\'agit d\'une erreur.',
+        'Seul un administrateur peut supprimer une tâche.',
         backgroundColor: Colors.orange,
         colorText: Colors.white,
       );
@@ -459,7 +458,7 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
                   communityId: _communityId,
                   projectId: _projectId,
                 );
-                Get.back(); // Retour au Kanban
+                Get.back();
                 Get.snackbar(
                   'Succès',
                   'Tâche supprimée',
@@ -508,4 +507,3 @@ class _TaskDetailPageState extends State<TaskDetailPage> {
     return '${_formatDate(date)} ${date.hour}:${date.minute.toString().padLeft(2, '0')}';
   }
 }
-
