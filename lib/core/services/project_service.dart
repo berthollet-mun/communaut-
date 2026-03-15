@@ -1,4 +1,5 @@
 import 'package:community/data/models/project_model.dart';
+import 'package:community/data/models/kanban_model.dart';
 import 'package:get/get.dart';
 import 'api_service.dart';
 
@@ -36,6 +37,18 @@ class ProjectService extends GetxService {
       }
     }
     if (data.containsKey('id') || data.containsKey('project_id')) return data;
+    return null;
+  }
+
+  Map<String, dynamic>? _extractKanbanPayload(dynamic raw) {
+    final data = _extractDataMap(raw);
+    if (data.isEmpty) return null;
+    if (data['kanban'] is Map<String, dynamic>) {
+      return Map<String, dynamic>.from(data['kanban']);
+    }
+    if (data['todo'] is List || data['in_progress'] is List || data['done'] is List) {
+      return data;
+    }
     return null;
   }
 
@@ -157,15 +170,40 @@ class ProjectService extends GetxService {
     required int communityId,
     required int projectId,
   }) async {
-    final response = await _apiService.get(
-      '/communities/$communityId/projects/$projectId',
-    );
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+    final responses = await Future.wait([
+      _apiService.get('/communities/$communityId/projects/$projectId'),
+      _apiService.get('/communities/$communityId/projects/$projectId/tasks?t=$timestamp'),
+    ]);
 
-    if (response.success) {
-      final payload = _extractProjectPayload(response.data);
-      if (payload != null) {
-        return ProjectModel.fromJson(payload);
+    final projectResponse = responses[0];
+    final kanbanResponse = responses[1];
+
+    if (projectResponse.success) {
+      final payload = _extractProjectPayload(projectResponse.data);
+      if (payload == null) return null;
+
+      var project = ProjectModel.fromJson(payload);
+      final kanbanPayload = _extractKanbanPayload(kanbanResponse.data);
+
+      if (kanbanResponse.success && kanbanPayload != null) {
+        final kanban = KanbanModel.fromJson(kanbanPayload);
+        final totalTasks = kanban.totalTasks;
+        final doneTasks = kanban.done.length;
+
+        project = project.copyWith(
+          todo_tasks: kanban.todo.length,
+          in_progress_tasks: kanban.inProgress.length,
+          done_tasks: doneTasks,
+          tasks_count: totalTasks,
+          completed_tasks: doneTasks,
+          completion_percentage: totalTasks == 0
+              ? 0.0
+              : (doneTasks / totalTasks) * 100,
+        );
       }
+
+      return project;
     }
     return null;
   }

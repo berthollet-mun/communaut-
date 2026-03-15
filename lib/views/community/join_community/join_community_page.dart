@@ -185,13 +185,21 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
 
   /// Exemple de code responsive
   Widget _buildCodeExample(ResponsiveHelper responsive) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+    final backgroundColor = isDarkMode ? theme.cardColor : Colors.grey[100]!;
+    final borderColor = isDarkMode
+        ? Colors.white.withOpacity(0.12)
+        : Colors.grey.withOpacity(0.2);
+    final secondaryTextColor = isDarkMode ? Colors.white70 : Colors.grey[600]!;
+
     return Container(
       padding: EdgeInsets.all(responsive.spacing(16)),
       decoration: BoxDecoration(
-        color: Colors.grey[100],
+        color: backgroundColor,
         borderRadius: BorderRadius.circular(responsive.spacing(12)),
         border: Border.all(
-          color: Colors.grey.withOpacity(0.2),
+          color: borderColor,
           width: responsive.value<double>(mobile: 1, tablet: 1.5, desktop: 2),
         ),
       ),
@@ -200,7 +208,7 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
         children: [
           Icon(
             Icons.help_outline,
-            color: Colors.grey[600],
+            color: secondaryTextColor,
             size: responsive.iconSize(20),
           ),
           SizedBox(width: responsive.spacing(12)),
@@ -211,6 +219,7 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
                 Text(
                   'À quoi ressemble un code d\'invitation ?',
                   style: TextStyle(
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     fontSize: responsive.fontSize(14),
                   ),
@@ -219,7 +228,7 @@ class _JoinCommunityPageState extends State<JoinCommunityPage> {
                 Text(
                   'Exemple: A1B2C3D4 (8 caractères, lettres et chiffres)',
                   style: TextStyle(
-                    color: Colors.grey[600],
+                    color: secondaryTextColor,
                     fontSize: responsive.fontSize(13),
                   ),
                 ),

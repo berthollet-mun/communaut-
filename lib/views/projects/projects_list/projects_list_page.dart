@@ -153,10 +153,11 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final progress = project.completion_percentage.clamp(0.0, 100.0).toDouble();
-    final completedTasks = project.completed_tasks;
-    final totalTasks = project.tasks_count;
-    final remainingTasks = (totalTasks - completedTasks).clamp(0, totalTasks);
+    final progress = project.effectiveCompletionPercentage.clamp(0.0, 100.0).toDouble();
+    final todoTasks = project.effectiveTodoTasks;
+    final inProgressTasks = project.effectiveInProgressTasks;
+    final completedTasks = project.effectiveDoneTasks;
+    final totalTasks = project.effectiveTotalTasks;
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       color: theme.cardColor,
@@ -261,7 +262,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                   _buildStat(
                     context,
                     Icons.task_outlined,
-                    '${project.tasks_count}',
+                    '$totalTasks',
                     'Tâches',
                   ),
                   _buildStat(
@@ -338,8 +339,18 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                             context: context,
                             icon: Icons.pending_actions_outlined,
                             label: 'À faire',
-                            value: '$remainingTasks',
+                            value: '$todoTasks',
                             color: Colors.orange,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _buildMiniTaskStat(
+                            context: context,
+                            icon: Icons.autorenew,
+                            label: 'En cours',
+                            value: '$inProgressTasks',
+                            color: Colors.blue,
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -403,6 +414,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     required Color color,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final normalizedLabel = _normalizeProjectStatusLabel(label);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
@@ -416,7 +428,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
           const SizedBox(width: 6),
           Expanded(
             child: Text(
-              '$label: $value',
+              '$normalizedLabel: $value',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
@@ -429,6 +441,30 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
         ],
       ),
     );
+  }
+
+  String _normalizeProjectStatusLabel(String label) {
+    final value = label.trim().toLowerCase();
+
+    if (value.contains('en cours') || value.contains('in_progress')) {
+      return 'En cours';
+    }
+
+    if (value.contains('achev') ||
+        value.contains('termin') ||
+        value.contains('done') ||
+        value.contains('completed')) {
+      return 'Terminé';
+    }
+
+    if (value.contains('a faire') ||
+        value.contains('à faire') ||
+        value.contains('todo') ||
+        value.contains('pending')) {
+      return 'À faire';
+    }
+
+    return label;
   }
 
   bool _canCreateProject(CommunityModel community) {

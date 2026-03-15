@@ -12,6 +12,9 @@ class ProjectModel {
   final int tasks_count;
   final int completed_tasks;
   final double completion_percentage;
+  final int? todo_tasks;
+  final int? in_progress_tasks;
+  final int? done_tasks;
 
   ProjectModel({
     required this.id,
@@ -25,6 +28,9 @@ class ProjectModel {
     this.tasks_count = 0,
     this.completed_tasks = 0,
     this.completion_percentage = 0.0,
+    this.todo_tasks,
+    this.in_progress_tasks,
+    this.done_tasks,
   });
 
   factory ProjectModel.fromJson(Map<String, dynamic> json) {
@@ -44,9 +50,32 @@ class ProjectModel {
       ),
       creator_nom: json['creator_nom'],
       creator_prenom: json['creator_prenom'],
-      tasks_count: _parseInt(json['tasks_count'] ?? json['total_tasks'] ?? json['tasksCount'], defaultValue: 0),
-      completed_tasks: _parseInt(json['completed_tasks'] ?? json['done_tasks'] ?? json['completedTasks'], defaultValue: 0),
+      tasks_count: _parseInt(
+        json['tasks_count'] ?? json['total_tasks'] ?? json['tasksCount'],
+        defaultValue: 0,
+      ),
+      completed_tasks: _parseInt(
+        json['completed_tasks'] ??
+            json['done_tasks'] ??
+            json['completedTasks'],
+        defaultValue: 0,
+      ),
       completion_percentage: _parseDouble(json['completion_percentage'] ?? json['progress']),
+      todo_tasks: _parseNullableInt(
+        json['todo_tasks'] ??
+            json['todo_count'] ??
+            json['a_faire_tasks'] ??
+            json['a_faire_count'],
+      ),
+      in_progress_tasks: _parseNullableInt(
+        json['in_progress_tasks'] ??
+            json['in_progress_count'] ??
+            json['en_cours_tasks'] ??
+            json['en_cours_count'],
+      ),
+      done_tasks: _parseNullableInt(
+        json['done_tasks'] ?? json['done_count'] ?? json['completed_tasks'],
+      ),
     );
   }
 
@@ -66,6 +95,11 @@ class ProjectModel {
     return defaultValue;
   }
 
+  static int? _parseNullableInt(dynamic value) {
+    if (value == null) return null;
+    return _parseInt(value, defaultValue: 0);
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -79,6 +113,9 @@ class ProjectModel {
       'tasks_count': tasks_count,
       'completed_tasks': completed_tasks,
       'completion_percentage': completion_percentage,
+      'todo_tasks': todo_tasks,
+      'in_progress_tasks': in_progress_tasks,
+      'done_tasks': done_tasks,
     };
   }
 
@@ -94,6 +131,9 @@ class ProjectModel {
     int? tasks_count,
     int? completed_tasks,
     double? completion_percentage,
+    int? todo_tasks,
+    int? in_progress_tasks,
+    int? done_tasks,
   }) {
     return ProjectModel(
       id: id ?? this.id,
@@ -108,6 +148,9 @@ class ProjectModel {
       completed_tasks: completed_tasks ?? this.completed_tasks,
       completion_percentage:
           completion_percentage ?? this.completion_percentage,
+      todo_tasks: todo_tasks ?? this.todo_tasks,
+      in_progress_tasks: in_progress_tasks ?? this.in_progress_tasks,
+      done_tasks: done_tasks ?? this.done_tasks,
     );
   }
 
@@ -117,5 +160,28 @@ class ProjectModel {
   String get creatorFullName {
     if (creator_prenom == null && creator_nom == null) return 'Inconnu';
     return '${creator_prenom ?? ''} ${creator_nom ?? ''}'.trim();
+  }
+
+  int get effectiveDoneTasks => done_tasks ?? completed_tasks;
+
+  int get effectiveInProgressTasks => in_progress_tasks ?? 0;
+
+  int get effectiveTodoTasks {
+    if (todo_tasks != null) return todo_tasks!;
+    final remaining = effectiveTotalTasks - effectiveDoneTasks - effectiveInProgressTasks;
+    return remaining < 0 ? 0 : remaining;
+  }
+
+  int get effectiveTotalTasks {
+    if (todo_tasks != null || in_progress_tasks != null || done_tasks != null) {
+      return (todo_tasks ?? 0) + effectiveInProgressTasks + effectiveDoneTasks;
+    }
+    return tasks_count;
+  }
+
+  double get effectiveCompletionPercentage {
+    final total = effectiveTotalTasks;
+    if (total == 0) return 0.0;
+    return (effectiveDoneTasks / total) * 100;
   }
 }
