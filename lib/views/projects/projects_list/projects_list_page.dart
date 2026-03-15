@@ -28,7 +28,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
   @override
   void initState() {
     super.initState();
-    // On ne charge plus ici, on laisse build décider quand tout est prêt
+    // On ne charge plus ici, on laisse build decider quand tout est pret
   }
 
   Future<void> _loadProjects() async {
@@ -49,7 +49,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
       );
     }
 
-    // 🔁 S'assurer qu'on charge une fois automatiquement à l'ouverture
+    // Charger une fois automatiquement a l'ouverture.
     if (!_hasLoadedOnce) {
       _hasLoadedOnce = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -123,12 +123,13 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                   )
                 : GridView.builder(
                     padding: const EdgeInsets.all(16),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: 16,
-                      mainAxisSpacing: 16,
-                      mainAxisExtent: 285, // Fixed height for desktop/tablet cards
-                    ),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          mainAxisExtent: 285,
+                        ),
                     itemCount: projects.length,
                     itemBuilder: (context, index) =>
                         _buildProjectCard(projects[index], community),
@@ -153,11 +154,14 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final progress = project.effectiveCompletionPercentage.clamp(0.0, 100.0).toDouble();
+    final progress = project.effectiveCompletionPercentage
+        .clamp(0.0, 100.0)
+        .toDouble();
     final todoTasks = project.effectiveTodoTasks;
     final inProgressTasks = project.effectiveInProgressTasks;
     final completedTasks = project.effectiveDoneTasks;
     final totalTasks = project.effectiveTotalTasks;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       color: theme.cardColor,
@@ -185,7 +189,9 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: colorScheme.primary.withOpacity(isDark ? 0.18 : 0.10),
+                      color: colorScheme.primary.withOpacity(
+                        isDark ? 0.18 : 0.10,
+                      ),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Icon(
@@ -243,9 +249,16 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                           value: 'archive',
                           child: Row(
                             children: [
-                              Icon(Icons.archive_outlined, size: 18, color: Colors.orange),
+                              Icon(
+                                Icons.archive_outlined,
+                                size: 18,
+                                color: Colors.orange,
+                              ),
                               SizedBox(width: 8),
-                              Text('Archiver', style: TextStyle(color: Colors.orange)),
+                              Text(
+                                'Archiver',
+                                style: TextStyle(color: Colors.orange),
+                              ),
                             ],
                           ),
                         ),
@@ -254,8 +267,6 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                 ],
               ),
               const SizedBox(height: 16),
-
-              // Stats
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -280,15 +291,20 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                 ],
               ),
               const SizedBox(height: 12),
-
-              // Progression toujours lisible, même à 0%
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurface.withOpacity(isDark ? 0.05 : 0.03),
+                  color: colorScheme.onSurface.withOpacity(
+                    isDark ? 0.05 : 0.03,
+                  ),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: colorScheme.onSurface.withOpacity(isDark ? 0.10 : 0.08),
+                    color: colorScheme.onSurface.withOpacity(
+                      isDark ? 0.10 : 0.08,
+                    ),
                   ),
                 ),
                 child: Column(
@@ -343,7 +359,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                             color: Colors.orange,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildMiniTaskStat(
                             context: context,
@@ -353,7 +369,7 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                             color: Colors.blue,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: _buildMiniTaskStat(
                             context: context,
@@ -415,8 +431,9 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final normalizedLabel = _normalizeProjectStatusLabel(label);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
       decoration: BoxDecoration(
         color: color.withOpacity(isDark ? 0.16 : 0.08),
         borderRadius: BorderRadius.circular(8),
@@ -424,16 +441,35 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
       ),
       child: Row(
         children: [
-          Icon(icon, size: 14, color: color),
-          const SizedBox(width: 6),
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 4),
           Expanded(
             child: Text(
-              '$normalizedLabel: $value',
+              normalizedLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w600,
+                color: color,
+              ),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Container(
+            constraints: const BoxConstraints(minWidth: 20),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
+              color: color.withOpacity(isDark ? 0.18 : 0.12),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              value,
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              style: TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
                 color: color,
               ),
             ),
@@ -481,12 +517,11 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
     Get.dialog(
       AlertDialog(
         title: const Text('Archiver le projet'),
-        content: Text('Voulez-vous vraiment archiver le projet "${project.nom}" ?'),
+        content: Text(
+          'Voulez-vous vraiment archiver le projet "${project.nom}" ?',
+        ),
         actions: [
-          TextButton(
-            onPressed: () => Get.back(),
-            child: const Text('Annuler'),
-          ),
+          TextButton(onPressed: () => Get.back(), child: const Text('Annuler')),
           ElevatedButton(
             onPressed: () async {
               Get.back();
@@ -511,7 +546,10 @@ class _ProjectsListPageState extends State<ProjectsListPage> {
                 );
               }
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.orange,
+              foregroundColor: Colors.white,
+            ),
             child: const Text('Archiver'),
           ),
         ],
